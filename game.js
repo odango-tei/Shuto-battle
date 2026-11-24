@@ -174,7 +174,7 @@ import * as THREE from 'three';
       chunks.get(k).push(b);
     }
 
-    const bldMat = new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.62, metalness:0.08, transparent:true, opacity:1});
+    const bldMat = new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.62, metalness:0.08});
     function buildingColor(usage){
       const u = usage || '';
       if(u.includes('住宅')) return [0.91, 0.86, 0.78]; // warm beige
@@ -566,7 +566,7 @@ import * as THREE from 'three';
     const dt=Math.min((ts-lastTime)/1000,0.05); lastTime=ts;
     let ix=0,iy=0;
     if(keys.has('up')) iy+=1; if(keys.has('down')) iy-=1; if(keys.has('left')) ix-=1; if(keys.has('right')) ix+=1;
-    if(moveJoy.active){ ix+=moveJoy.x; iy+=moveJoy.y; }
+    if(moveJoy.active){ ix+=moveJoy.x; iy-=moveJoy.y; }
     // look stick
     if(lookJoy.active){
       player.yaw -= lookJoy.x * 2.2 * dt;
@@ -604,7 +604,6 @@ import * as THREE from 'three';
     camera.rotation.order='YXZ'; camera.rotation.y=player.yaw; camera.rotation.x=player.pitch;
     gunGroup.position.y=-0.28+Math.sin(bobPhase)*(moving?0.008:0);
     gunGroup.position.x=0.28+Math.sin(bobPhase*0.5)*(moving?0.004:0);
-    updateOcclusion();
     drawMinimap();
     renderer.render(scene,camera);
   }

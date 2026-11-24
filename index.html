@@ -17,10 +17,21 @@
   <div id="game-container" aria-label="首都戦記3D"></div>
 
   <div class="overlay-ui">
-    <div id="joystick" class="joystick" aria-label="移動スティック">
+    <div id="joystick-move" class="joystick joystick-left" aria-label="移動スティック">
       <div class="joystick-base">
-        <div id="joystick-knob" class="joystick-knob"></div>
+        <div id="joystick-move-knob" class="joystick-knob"></div>
       </div>
+    </div>
+
+    <div id="joystick-look" class="joystick joystick-right" aria-label="視点スティック">
+      <div class="joystick-base">
+        <div id="joystick-look-knob" class="joystick-knob"></div>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button id="btn-shoot" class="action-btn shoot" type="button">撃つ</button>
+      <button id="btn-jump" class="action-btn jump" type="button">ジャンプ</button>
     </div>
 
     <div class="minimap-wrap">

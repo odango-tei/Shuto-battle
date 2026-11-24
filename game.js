@@ -5,8 +5,12 @@ import * as THREE from 'three';
 
   const container = document.getElementById('game-container');
   const stageSwitchEl = document.getElementById('stage-switch');
-  const joystickEl = document.getElementById('joystick');
-  const joystickKnob = document.getElementById('joystick-knob');
+  const moveStickEl = document.getElementById('joystick-move');
+  const moveStickKnob = document.getElementById('joystick-move-knob');
+  const lookStickEl = document.getElementById('joystick-look');
+  const lookStickKnob = document.getElementById('joystick-look-knob');
+  const shootBtn = document.getElementById('btn-shoot');
+  const jumpBtn = document.getElementById('btn-jump');
   const minimap = document.getElementById('minimap');
   const minimapLabel = document.getElementById('minimap-label');
   const mmCtx = minimap.getContext('2d');
@@ -51,8 +55,9 @@ import * as THREE from 'three';
   let occluders = []; // meshes to fade
   let currentStageId = 'shinjuku';
   const keys = new Set();
-  const joystick = { active: false, x: 0, y: 0, pointerId: null };
-  const player = { x: 0, y: 1.7, z: 0, yaw: Math.PI, pitch: 0 };
+  const moveJoy = { active: false, x: 0, y: 0, pointerId: null };
+  const lookJoy = { active: false, x: 0, y: 0, pointerId: null };
+  const player = { x: 0, y: 1.7, z: 0, yaw: Math.PI, pitch: 0, vy: 0, grounded: true };
   const raycaster = new THREE.Raycaster();
   let stageData = { shinjuku: null };
   let activeGroups = [];
@@ -109,9 +114,9 @@ import * as THREE from 'three';
     // ground
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(2400,2400),
-      new THREE.MeshStandardMaterial({color:0x2a3444, roughness:1})
+      new THREE.MeshStandardMaterial({color:0x3a4555, roughness:1})
     );
-    ground.rotation.x = -Math.PI/2; ground.position.y = -0.05; ground.receiveShadow = true;
+    ground.rotation.x = -Math.PI/2; ground.position.y = 0.35; ground.receiveShadow = true;
     group.add(ground);
 
     // roads (merged)
@@ -133,7 +138,7 @@ import * as THREE from 'three';
       }
       const geo = new THREE.ShapeGeometry(shape);
       geo.rotateX(-Math.PI/2);
-      geo.translate(0,0.03,0);
+      geo.translate(0,0.38,0);
       roadGeoms.push(geo);
     }
     if(roadGeoms.length){
@@ -322,7 +327,7 @@ import * as THREE from 'three';
     } else {
       clearStageObjects();
     }
-    player.x=def.spawn.x; player.z=def.spawn.z; player.y=1.7; player.yaw=def.spawn.yaw; player.pitch=0;
+    player.x=def.spawn.x; player.z=def.spawn.z; player.y=1.7; player.yaw=def.spawn.yaw; player.pitch=0; player.vy=0; player.grounded=true;
     for(let r=0;r<20 && collides(player.x,player.z);r++){
       player.x += (Math.random()-0.5)*4; player.z += (Math.random()-0.5)*4;
     }
@@ -344,22 +349,64 @@ import * as THREE from 'three';
   window.addEventListener('keyup',e=>{const k=keyMap[e.key]; if(k) keys.delete(k);});
   window.addEventListener('blur',()=>{keys.clear(); resetJoystick();});
 
-  function setJoystickFromEvent(e){
-    const base=joystickEl.querySelector('.joystick-base');
-    const rect=base.getBoundingClientRect();
-    const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
-    let dx=e.clientX-cx, dy=e.clientY-cy;
-    const dist=Math.hypot(dx,dy); const maxR=rect.width*0.28;
-    if(dist>maxR){ dx=dx/dist*maxR; dy=dy/dist*maxR; }
-    joystick.x=dx/maxR; joystick.y=-(dy/maxR); joystick.active=Math.hypot(joystick.x,joystick.y)>0.06;
-    joystickKnob.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    joystickEl.classList.toggle('active', joystick.active);
+  function setupJoystick(el, knob, state) {
+    function setFromEvent(e){
+      const base = el.querySelector('.joystick-base');
+      const rect = base.getBoundingClientRect();
+      const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+      let dx = e.clientX - cx, dy = e.clientY - cy;
+      const dist = Math.hypot(dx,dy);
+      const maxR = rect.width * 0.28;
+      if(dist>maxR){ dx=dx/dist*maxR; dy=dy/dist*maxR; }
+      state.x = dx/maxR; state.y = -(dy/maxR);
+      state.active = Math.hypot(state.x,state.y) > 0.06;
+      knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      el.classList.toggle('active', state.active);
+    }
+    function reset(){
+      state.active=false; state.x=0; state.y=0; state.pointerId=null;
+      knob.style.transform='translate(-50%,-50%)';
+      el.classList.remove('active');
+    }
+    el.addEventListener('pointerdown', e=>{ e.preventDefault(); state.pointerId=e.pointerId; el.setPointerCapture(e.pointerId); setFromEvent(e); });
+    el.addEventListener('pointermove', e=>{ if(e.pointerId!==state.pointerId) return; e.preventDefault(); setFromEvent(e); });
+    const end=e=>{ if(e.pointerId!==state.pointerId) return; e.preventDefault(); reset(); };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    return reset;
   }
-  function resetJoystick(){ joystick.active=false; joystick.x=0; joystick.y=0; joystick.pointerId=null; joystickKnob.style.transform='translate(-50%,-50%)'; joystickEl.classList.remove('active'); }
-  joystickEl.addEventListener('pointerdown',e=>{e.preventDefault(); joystick.pointerId=e.pointerId; joystickEl.setPointerCapture(e.pointerId); setJoystickFromEvent(e);});
-  joystickEl.addEventListener('pointermove',e=>{if(e.pointerId!==joystick.pointerId) return; e.preventDefault(); setJoystickFromEvent(e);});
-  const joyEnd=e=>{if(e.pointerId!==joystick.pointerId) return; e.preventDefault(); resetJoystick();};
-  joystickEl.addEventListener('pointerup',joyEnd); joystickEl.addEventListener('pointercancel',joyEnd);
+  const resetMoveJoy = setupJoystick(moveStickEl, moveStickKnob, moveJoy);
+  const resetLookJoy = setupJoystick(lookStickEl, lookStickKnob, lookJoy);
+  function resetJoystick(){ resetMoveJoy(); resetLookJoy(); }
+
+  // --- Actions: jump / shoot ---
+  let shootCooldown = 0;
+  function doJump(){
+    if(player.grounded){ player.vy = 7.5; player.grounded = false; }
+  }
+  function doShoot(){
+    if(shootCooldown > 0) return;
+    shootCooldown = 0.18;
+    // muzzle flash
+    const flash = new THREE.PointLight(0xfff2a8, 8, 8);
+    const muzzle = new THREE.Vector3(0.28,-0.22,-1.2).applyMatrix4(camera.matrixWorld);
+    flash.position.copy(muzzle);
+    scene.add(flash);
+    setTimeout(()=>scene.remove(flash), 60);
+    // tracer
+    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+    const start = muzzle.clone();
+    const end = start.clone().add(dir.multiplyScalar(80));
+    const geo = new THREE.BufferGeometry().setFromPoints([start,end]);
+    const mat = new THREE.LineBasicMaterial({color:0xfff3b0, transparent:true, opacity:0.9});
+    const line = new THREE.Line(geo, mat);
+    scene.add(line);
+    setTimeout(()=>{ scene.remove(line); geo.dispose(); mat.dispose(); }, 80);
+    // small recoil
+    player.pitch += 0.01;
+  }
+  jumpBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); doJump(); });
+  shootBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); doShoot(); });
+  window.addEventListener('keydown', e=>{ if(e.code==='Space'){ e.preventDefault(); doJump(); } });
 
   // --- Collision ---
   const playerRadius=0.45;
@@ -446,7 +493,15 @@ import * as THREE from 'three';
     const dt=Math.min((ts-lastTime)/1000,0.05); lastTime=ts;
     let ix=0,iy=0;
     if(keys.has('up')) iy+=1; if(keys.has('down')) iy-=1; if(keys.has('left')) ix-=1; if(keys.has('right')) ix+=1;
-    if(joystick.active){ ix+=joystick.x; iy+=joystick.y; }
+    if(moveJoy.active){ ix+=moveJoy.x; iy+=moveJoy.y; }
+    // look stick
+    if(lookJoy.active){
+      player.yaw -= lookJoy.x * 2.2 * dt;
+      player.pitch += lookJoy.y * 1.6 * dt;
+      const pLim = Math.PI/2 - 0.15;
+      if(player.pitch > pLim) player.pitch = pLim;
+      if(player.pitch < -pLim) player.pitch = -pLim;
+    }
     const moving=Math.hypot(ix,iy)>0.06;
     if(moving){
       const len=Math.hypot(ix,iy); if(len>1){ix/=len;iy/=len;}
@@ -460,11 +515,22 @@ import * as THREE from 'three';
       tryMove(player.x+(mx/ml)*speed*dt, player.z+(mz/ml)*speed*dt);
       bobPhase+=dt*8;
     } else { bobPhase*=0.9; }
-    const bob=Math.sin(bobPhase)*(moving?0.035:0);
+    // jump physics
+    shootCooldown = Math.max(0, shootCooldown - dt);
+    if(!player.grounded || player.vy > 0){
+      player.vy -= 18 * dt;
+      player.y += player.vy * dt;
+      if(player.y <= 1.7){
+        player.y = 1.7; player.vy = 0; player.grounded = true;
+      }
+    } else {
+      player.y = 1.7;
+    }
+    const bob=Math.sin(bobPhase)*(moving && player.grounded ? 0.035:0);
     camera.position.set(player.x, player.y+bob, player.z);
     camera.rotation.order='YXZ'; camera.rotation.y=player.yaw; camera.rotation.x=player.pitch;
-    gunGroup.position.y=-0.28+Math.sin(bobPhase)*0.008;
-    gunGroup.position.x=0.28+Math.sin(bobPhase*0.5)*0.004;
+    gunGroup.position.y=-0.28+Math.sin(bobPhase)*(moving?0.008:0);
+    gunGroup.position.x=0.28+Math.sin(bobPhase*0.5)*(moving?0.004:0);
     updateOcclusion();
     drawMinimap();
     renderer.render(scene,camera);

@@ -42,7 +42,7 @@ import * as THREE from 'three';
   const joystick = { active: false, x: 0, y: 0, pointerId: null };
   const player = { x: 0, y: 1.7, z: 0, yaw: Math.PI, pitch: 0 };
   const raycaster = new THREE.Raycaster();
-  let stageData = { shinjuku: null, shibuya: null };
+  let stageData = { shinjuku: null };
   let activeGroups = [];
 
   // --- Helpers ---
@@ -256,77 +256,6 @@ import * as THREE from 'three';
     return out;
   }
 
-  // --- Simple Shibuya fallback stage (hand-crafted, not PLATEAU extract) ---
-  function buildSimpleStage(area) {
-    clearStageObjects();
-    const group = new THREE.Group();
-    activeGroups.push(group); scene.add(group);
-
-    const base = new THREE.Mesh(new THREE.PlaneGeometry(1200,1200), new THREE.MeshStandardMaterial({color:0x1a2433, roughness:1}));
-    base.rotation.x=-Math.PI/2; base.position.set(area.center.x,-0.05,area.center.z); base.receiveShadow=true; group.add(base);
-
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(area.ground.width, area.ground.depth), new THREE.MeshStandardMaterial({color:0x252f3f, roughness:0.95}));
-    ground.rotation.x=-Math.PI/2; ground.position.set(area.ground.x,0,area.ground.z); ground.receiveShadow=true; group.add(ground);
-
-    const roadMat = new THREE.MeshStandardMaterial({color:0x3a4556, roughness:0.92});
-    for(const r of area.roads||[]){
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(r.width,r.depth), roadMat);
-      m.rotation.x=-Math.PI/2; m.position.set(r.x,0.02,r.z); m.receiveShadow=true; group.add(m);
-    }
-    const bldMat = new THREE.MeshStandardMaterial({color:0x8a99ad, roughness:0.55, metalness:0.12, transparent:true, opacity:1});
-    for(const b of area.buildings||[]){
-      const geo = new THREE.BoxGeometry(b.w,b.h,b.d);
-      const mat = bldMat.clone(); mat.color.setHex(b.color||0x8a99ad);
-      const mesh = new THREE.Mesh(geo,mat);
-      mesh.position.set(b.x,b.h/2,b.z); mesh.castShadow=true; mesh.receiveShadow=true;
-      mesh.userData.box={minX:b.x-b.w/2,maxX:b.x+b.w/2,minZ:b.z-b.d/2,maxZ:b.z+b.d/2,maxY:b.h};
-      group.add(mesh); occluders.push(mesh);
-      addCollider(b.x,b.z,b.w,b.d,0.8);
-      if(b.label){ const l=makeLabel(b.label,'#f8fafc'); l.position.set(b.x,b.h+5,b.z); group.add(l); }
-    }
-    for(const lm of area.landmarks||[]){
-      const l=makeLabel(lm.name, lm.color||'#fff'); l.position.set(lm.x,8,lm.z); group.add(l);
-    }
-    addBounds(area.bounds);
-    return area.bounds;
-  }
-
-  // --- Stage definitions ---
-  const SHIBUYA_SIMPLE = {
-    id:'shibuya', name:'渋谷駅周辺', shortName:'渋谷',
-    center:{x:0,z:700}, spawn:{x:-5,z:735,yaw:Math.PI},
-    ground:{x:0,z:700,width:500,depth:440},
-    bounds:{minX:-245,maxX:245,minZ:485,maxZ:915},
-    roads:[
-      {x:0,z:700,width:500,depth:24},{x:-70,z:700,width:22,depth:440},
-      {x:40,z:760,width:20,depth:160},{x:30,z:640,width:18,depth:160},
-      {x:80,z:760,width:14,depth:120},{x:120,z:700,width:18,depth:300},
-    ],
-    buildings:[
-      {x:-30,z:700,w:80,d:45,h:26,color:0x6b7280,label:'渋谷駅'},
-      {x:50,z:690,w:40,d:38,h:230,color:0xf0a0c8,label:'渋谷スクランブルスクエア'},
-      {x:95,z:675,w:34,d:34,h:183,color:0xc4b5fd,label:'渋谷ヒカリエ'},
-      {x:130,z:690,w:32,d:30,h:120,color:0xb8a5f0,label:'渋谷ストリーム'},
-      {x:-100,z:690,w:34,d:30,h:55,color:0x7a8699,label:'渋谷フクラス'},
-      {x:-120,z:725,w:30,d:28,h:45,color:0x8896a8,label:'渋谷マークシティ'},
-      {x:25,z:760,w:30,d:30,h:75,color:0xf472b6,label:'SHIBUYA109'},
-      {x:-25,z:755,w:28,d:24,h:35,color:0x94a3b8,label:'MAGNET by SHIBUYA109'},
-      {x:65,z:755,w:24,d:22,h:40,color:0x94a3b8,label:'渋谷モディ'},
-      {x:75,z:790,w:26,d:24,h:28,color:0x94a3b8,label:'渋谷PARCO'},
-      {x:150,z:740,w:45,d:30,h:38,color:0x86efac,label:'MIYASHITA PARK'},
-      {x:-40,z:775,w:28,d:26,h:38,color:0x94a3b8},{x:-75,z:780,w:26,d:24,h:32,color:0x8896a8},
-      {x:-110,z:770,w:28,d:26,h:34,color:0x8896a8},{x:-20,z:820,w:30,d:24,h:30,color:0x8896a8},
-      {x:30,z:835,w:28,d:24,h:28,color:0x8896a8},{x:80,z:830,w:26,d:22,h:30,color:0x8896a8},
-      {x:-30,z:640,w:28,d:24,h:30,color:0x94a3b8},{x:60,z:640,w:26,d:22,h:32,color:0x94a3b8},
-      {x:170,z:700,w:28,d:26,h:36,color:0x94a3b8},{x:190,z:740,w:24,d:24,h:30,color:0x8896a8},
-      {x:-150,z:720,w:28,d:26,h:32,color:0x8896a8},{x:-180,z:690,w:30,d:28,h:34,color:0x8896a8},
-    ],
-    landmarks:[
-      {name:'渋谷駅',x:-30,z:700,color:'#fbbf24'},{name:'スクランブル交差点',x:5,z:725,color:'#f472b6'},
-      {name:'ハチ公',x:-15,z:718,color:'#a3e635'},{name:'SHIBUYA109',x:25,z:760,color:'#fb7185'},
-    ]
-  };
-
   // --- Gun ---
   const gunGroup = new THREE.Group();
   function buildGun(){
@@ -345,23 +274,19 @@ import * as THREE from 'three';
   // --- Stages ---
   function getStageDef(id){
     if(id==='shinjuku') return {id:'shinjuku', name:'新宿駅周辺', shortName:'新宿', spawn:{x:0,z:40,yaw:Math.PI}};
-    if(id==='shibuya') return {id:'shibuya', name:'渋谷駅周辺', shortName:'渋谷', spawn:SHIBUYA_SIMPLE.spawn};
     return null;
   }
 
   function switchStage(id){
-    currentStageId = id;
-    const def = getStageDef(id);
+    currentStageId = 'shinjuku';
+    const def = getStageDef('shinjuku');
     if(!def) return;
-    if(id==='shinjuku' && stageData.shinjuku){
+    if(stageData.shinjuku){
       buildPlateauStage(stageData.shinjuku);
-    } else if(id==='shibuya'){
-      buildSimpleStage(SHIBUYA_SIMPLE);
     } else {
       clearStageObjects();
     }
     player.x=def.spawn.x; player.z=def.spawn.z; player.y=1.7; player.yaw=def.spawn.yaw; player.pitch=0;
-    // unstuck if spawned inside collider
     for(let r=0;r<20 && collides(player.x,player.z);r++){
       player.x += (Math.random()-0.5)*4; player.z += (Math.random()-0.5)*4;
     }
@@ -369,20 +294,12 @@ import * as THREE from 'three';
   }
 
   function updateStageUI(){
-    document.querySelectorAll('.stage-btn').forEach(b=>b.classList.toggle('active', b.dataset.stage===currentStageId));
     const def=getStageDef(currentStageId);
     minimapLabel.textContent = def ? def.name : '-';
   }
 
   function buildStageUI(){
-    stageSwitchEl.innerHTML='';
-    for(const id of ['shinjuku','shibuya']){
-      const def=getStageDef(id);
-      const btn=document.createElement('button');
-      btn.type='button'; btn.className='stage-btn'; btn.dataset.stage=id; btn.textContent=def.shortName;
-      btn.addEventListener('click',()=>switchStage(id));
-      stageSwitchEl.appendChild(btn);
-    }
+    if(stageSwitchEl){ stageSwitchEl.innerHTML=''; stageSwitchEl.style.display='none'; }
   }
 
   // --- Input ---
@@ -441,16 +358,14 @@ import * as THREE from 'three';
     const off=document.createElement('canvas'); off.width=w; off.height=h;
     const ctx=off.getContext('2d');
     ctx.fillStyle='rgba(10,16,28,0.55)'; ctx.fillRect(0,0,w,h);
-    let bounds;
-    if(currentStageId==='shinjuku') bounds={minX:-1000,maxX:1000,minZ:-1000,maxZ:1000};
-    else bounds=SHIBUYA_SIMPLE.bounds;
+    const bounds={minX:-1000,maxX:1000,minZ:-1000,maxZ:1000};
     const bw=bounds.maxX-bounds.minX, bd=bounds.maxZ-bounds.minZ;
     const pad=10; const scale=Math.min((w-pad*2)/bw,(h-pad*2)/bd);
     const ox=(w-bw*scale)/2 - bounds.minX*scale;
     const oy=(h-bd*scale)/2 - bounds.minZ*scale;
     const tx=x=>x*scale+ox, ty=z=>z*scale+oy;
     ctx.fillStyle='rgba(100,116,139,0.55)';
-    if(currentStageId==='shinjuku' && stageData.shinjuku){
+    if(stageData.shinjuku){
       for(const r of stageData.shinjuku.roads){
         const ring=r.f&&r.f[0]; if(!ring||ring.length<3) continue;
         ctx.beginPath(); ctx.moveTo(tx(ring[0][0]),ty(ring[0][1]));
@@ -464,10 +379,6 @@ import * as THREE from 'three';
         for(let i=1;i<ring.length;i++) ctx.lineTo(tx(ring[i][0]),ty(ring[i][1]));
         ctx.closePath(); ctx.fill();
       }
-    } else {
-      for(const r of SHIBUYA_SIMPLE.roads) ctx.fillRect(tx(r.x-r.width/2),ty(r.z-r.depth/2),r.width*scale,r.depth*scale);
-      ctx.fillStyle='rgba(148,163,184,0.65)';
-      for(const b of SHIBUYA_SIMPLE.buildings) ctx.fillRect(tx(b.x-b.w/2),ty(b.z-b.d/2),b.w*scale,b.d*scale);
     }
     mmCache={canvas:off,bounds,scale,ox,oy}; mmCacheKey=key;
   }
@@ -525,8 +436,6 @@ import * as THREE from 'three';
 
   // --- Init ---
   buildGun(); buildStageUI(); resize(); requestAnimationFrame(animate);
-  // Start on Shibuya immediately, then switch to Shinjuku once PLATEAU data loads
-  switchStage('shibuya');
   minimapLabel.textContent = '新宿データ読込中...';
   fetch('./data/shinjuku_plateau.json')
     .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })

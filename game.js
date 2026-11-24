@@ -318,6 +318,28 @@ import * as THREE from 'three';
     return null;
   }
 
+  function randomSafeSpawn(){
+    const margin = 60; // keep away from edge bounds
+    const minX = -980 + margin, maxX = 980 - margin;
+    const minZ = -980 + margin, maxZ = 980 - margin;
+    for(let i=0; i<500; i++){
+      const x = minX + Math.random() * (maxX - minX);
+      const z = minZ + Math.random() * (maxZ - minZ);
+      if(!collides(x, z)){
+        return {x, z, yaw: Math.random() * Math.PI * 2};
+      }
+    }
+    // fallback: spiral from center
+    for(let r=5; r<=900; r+=5){
+      for(let a=0; a<24; a++){
+        const ang = (a/24)*Math.PI*2;
+        const x = Math.cos(ang)*r, z = Math.sin(ang)*r;
+        if(!collides(x,z)) return {x, z, yaw: Math.random()*Math.PI*2};
+      }
+    }
+    return {x:0, z:55, yaw:Math.PI};
+  }
+
   function switchStage(id){
     currentStageId = 'shinjuku';
     const def = getStageDef('shinjuku');
@@ -327,7 +349,8 @@ import * as THREE from 'three';
     } else {
       clearStageObjects();
     }
-    player.x=def.spawn.x; player.z=def.spawn.z; player.y=2.05; player.yaw=def.spawn.yaw; player.pitch=0; player.vy=0; player.grounded=true;
+    const spawn = randomSafeSpawn();
+    player.x=spawn.x; player.z=spawn.z; player.y=2.05; player.yaw=spawn.yaw; player.pitch=0; player.vy=0; player.grounded=true;
     unstuckPlayer();
     keys.clear(); resetJoystick(); updateStageUI();
   }

@@ -571,6 +571,18 @@ import * as THREE from 'three';
   }
 
   function renderCharPreview(c){
+    const statsEl = document.getElementById('char-stats');
+    if(statsEl && c){
+      const rows = [
+        {lbl:'HP', val:c.hp, max:150, color:'#ef4444'},
+        {lbl:'スタミナ', val:c.stamina, max:150, color:'#22c55e'},
+        {lbl:'元気度', val:c.genki, max:150, color:'#eab308'},
+        {lbl:'スピード', val:Math.round((c.speed||1)*100), max:150, color:'#38bdf8'},
+      ];
+      statsEl.innerHTML = rows.map(r =>
+        `<div class="char-stat-row"><span class="lbl">${r.lbl}</span><span class="bar"><i style="width:${Math.min(100,Math.round(r.val/r.max*100))}%;background:${r.color}"></i></span><span class="val">${r.val}</span></div>`
+      ).join('');
+    }
     charPreview.innerHTML='';
     const wrap=document.createElement('div'); wrap.style.cssText='display:flex;gap:14px;align-items:center;width:100%';
     const canvas=document.createElement('canvas');

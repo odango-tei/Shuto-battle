@@ -47,9 +47,8 @@ import * as THREE from 'three';
 
   const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 2500);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.shadowMap.enabled = false;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
   container.appendChild(renderer.domElement);
@@ -57,13 +56,7 @@ import * as THREE from 'three';
   scene.add(new THREE.HemisphereLight(0xfff3d6, 0x6b7c8f, 0.75));
   const sun = new THREE.DirectionalLight(0xfff1cc, 2.2);
   sun.position.set(260, 420, 180);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  const sd = 650;
-  sun.shadow.camera.left = -sd; sun.shadow.camera.right = sd;
-  sun.shadow.camera.top = sd; sun.shadow.camera.bottom = -sd;
-  sun.shadow.camera.near = 1; sun.shadow.camera.far = 1400;
-  sun.shadow.bias = -0.0005;
+  sun.castShadow = false;
   scene.add(sun);
   scene.add(sun.target);
 
@@ -590,8 +583,8 @@ import * as THREE from 'three';
     // --- Integrated underground/station/bridges ---
     const indoorMat = new THREE.MeshStandardMaterial({color:0xd8d4cc, roughness:0.7, metalness:0.05});
     const indoorWallMat = new THREE.MeshStandardMaterial({color:0xe8e4dc, roughness:0.8, metalness:0.02, side:THREE.DoubleSide});
-    const tileMat = new THREE.MeshStandardMaterial({color:0xcfd8d3, roughness:0.55, metalness:0.08});
-    const ugMat = new THREE.MeshStandardMaterial({color:0xdde3de, roughness:0.6, metalness:0.05});
+    const tileMat = new THREE.MeshStandardMaterial({color:0xcfd8d3, roughness:0.55, metalness:0.08, emissive:0x9aa89f, emissiveIntensity:0.18});
+    const ugMat = new THREE.MeshStandardMaterial({color:0xdde3de, roughness:0.6, metalness:0.05, emissive:0x8fa39a, emissiveIntensity:0.15});
     const bridgeMat = new THREE.MeshStandardMaterial({color:0x9aa3ad, roughness:0.75, metalness:0.1});
 
     function addIndoorLights(pts, color, intensity, dist, cap){
@@ -634,8 +627,8 @@ import * as THREE from 'three';
         if(merged){ merged.computeBoundingSphere(); const m=new THREE.Mesh(merged, ugMat); m.frustumCulled=false; m.receiveShadow=true; group.add(m); }
       }
       // sparse lights
-      const step=Math.max(1, Math.floor(lightPts.length/25));
-      addIndoorLights(lightPts.filter((_,i)=>i%step===0), 0xfff2d6, 1.1, 18, 25);
+      const step=Math.max(1, Math.floor(lightPts.length/8));
+      addIndoorLights(lightPts.filter((_,i)=>i%step===0), 0xfff2d6, 0.9, 14, 8);
     }
 
     // Station indoor floors
@@ -675,8 +668,8 @@ import * as THREE from 'three';
         const merged=mergeGeometries(geoms); geoms.forEach(g=>g.dispose());
         if(merged){ merged.computeBoundingSphere(); const m=new THREE.Mesh(merged, tileMat.clone()); m.frustumCulled=false; m.receiveShadow=true; group.add(m); }
       }
-      const step=Math.max(1, Math.floor(lightPts.length/35));
-      addIndoorLights(lightPts.filter((_,i)=>i%step===0), 0xf7f3e8, 1.0, 16, 35);
+      const step=Math.max(1, Math.floor(lightPts.length/10));
+      addIndoorLights(lightPts.filter((_,i)=>i%step===0), 0xf7f3e8, 0.8, 12, 10);
     }
 
     // Bridges
@@ -1080,7 +1073,7 @@ import * as THREE from 'three';
   function resize(){ const w=container.clientWidth,h=container.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
   window.addEventListener('resize',resize); if(window.ResizeObserver) new ResizeObserver(resize).observe(container);
 
-  let lastTime=0, bobPhase=0;
+  let lastTime=0, bobPhase=0, lastHpTagT=0, lastStatsUiT=0, lastBigMapT=0;
   function animate(ts){
     requestAnimationFrame(animate);
     if(!lastTime) lastTime=ts;
@@ -1134,9 +1127,9 @@ import * as THREE from 'three';
       if(dpr>playRadius-2){ const s=(playRadius-2)/dpr; player.x*=s; player.z*=s; }
       updateItems(dt);
       updateEnemies(dt);
-      updateHPTags();
-      if(!bigmap.classList.contains('hidden') && (Math.floor(ts/200)%2===0)) drawBigMap();
-      updateStatsUI();
+      if(ts-lastHpTagT>150){ updateHPTags(); lastHpTagT=ts; }
+      if(!bigmap.classList.contains('hidden') && ts-lastBigMapT>400){ drawBigMap(); lastBigMapT=ts; }
+      if(ts-lastStatsUiT>200){ updateStatsUI(); lastStatsUiT=ts; }
     }
 
     const bob=Math.sin(bobPhase)*(moving && player.grounded ? 0.035:0);

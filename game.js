@@ -152,8 +152,10 @@ import * as THREE from 'three';
       const mergedRoad = mergeGeometries(roadGeoms);
       roadGeoms.forEach(g=>g.dispose());
       if(mergedRoad){
+        mergedRoad.computeBoundingSphere();
         const rm = new THREE.Mesh(mergedRoad, roadMat);
         rm.receiveShadow = true;
+        rm.frustumCulled = false;
         group.add(rm);
       }
     }

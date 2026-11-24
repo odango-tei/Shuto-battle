@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>首都戦記 - Shuto Battle 3D</title>
   <link rel="stylesheet" href="style.css">
   <script type="importmap">
@@ -22,7 +22,7 @@
       </div>
       <div class="hud-center">
         <div class="status-card">
-          <span class="status-label">現在地</span>
+          <span class="status-label">ステージ</span>
           <span id="current-area" class="status-value">-</span>
         </div>
         <div class="status-card">
@@ -32,10 +32,7 @@
       </div>
       <div class="hud-right">
         <div class="controls-hint">
-          <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>
-          <span class="hint-text">移動</span>
-          <span class="key wide">Shift</span>
-          <span class="hint-text">ダッシュ</span>
+          <span class="hint-text">ジョイスティック / WASD / 矢印キーで移動</span>
         </div>
       </div>
     </header>
@@ -44,10 +41,20 @@
       <div class="canvas-wrap">
         <div id="game-container" aria-label="首都戦記3Dゲーム"></div>
         <div class="view-badge">三人称視点</div>
+        <div class="stage-overlay">
+          <div class="stage-overlay-label">ステージ選択</div>
+          <div id="stage-buttons" class="stage-buttons"></div>
+        </div>
+        <div id="joystick" class="joystick" aria-label="移動ジョイスティック">
+          <div class="joystick-base">
+            <div id="joystick-knob" class="joystick-knob"></div>
+          </div>
+        </div>
       </div>
       <aside class="side-panel">
         <section class="panel-section">
-          <h2>エリア</h2>
+          <h2>ステージ</h2>
+          <p class="panel-note" style="margin-top:0;margin-bottom:12px;">新宿と渋谷は独立したステージです。下のボタンで移動できます。</p>
           <ul id="area-list" class="area-list"></ul>
         </section>
         <section class="panel-section">
@@ -66,7 +73,7 @@
               <div class="player-role">フィールドエージェント</div>
             </div>
           </div>
-          <p class="panel-note">新宿駅周辺・渋谷駅周辺の2エリアを三人称視点で探索できます。</p>
+          <p class="panel-note">画面左下のジョイスティックで移動します（PCはWASD/矢印キーも可）。建物には当たり判定があります。</p>
         </section>
         <section class="panel-section attribution">
           <h2>データ出典</h2>
@@ -78,7 +85,7 @@
           <p class="attr-detail">
             出典：東京都デジタルツイン実現プロジェクト<br>
             ライセンス：CC BY 4.0<br>
-            変更：新宿駅周辺・渋谷駅周辺の建物・ランドマークをゲーム用に簡略化
+            変更：新宿駅周辺・渋谷駅周辺を独立ステージとして簡略化・3D再構成
           </p>
         </section>
       </aside>

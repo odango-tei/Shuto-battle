@@ -3,15 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>首都戦記 - Shuto Battle</title>
+  <title>首都戦記 - Shuto Battle 3D</title>
   <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three.module.js"
+      }
+    }
+  </script>
 </head>
 <body>
   <div id="app">
     <header class="hud">
       <div class="hud-left">
         <h1 class="title">首都戦記</h1>
-        <p class="subtitle">SHUTO BATTLE</p>
+        <p class="subtitle">SHUTO BATTLE 3D</p>
       </div>
       <div class="hud-center">
         <div class="status-card">
@@ -19,20 +26,25 @@
           <span id="current-area" class="status-value">-</span>
         </div>
         <div class="status-card">
-          <span class="status-label">座標</span>
+          <span class="status-label">位置</span>
           <span id="current-pos" class="status-value">-</span>
         </div>
       </div>
       <div class="hud-right">
         <div class="controls-hint">
           <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>
-          <span class="hint-text">または矢印キーで移動</span>
+          <span class="hint-text">移動</span>
+          <span class="key wide">Shift</span>
+          <span class="hint-text">ダッシュ</span>
         </div>
       </div>
     </header>
 
     <main class="game-wrap">
-      <canvas id="game" width="960" height="640" aria-label="首都戦記ゲームマップ"></canvas>
+      <div class="canvas-wrap">
+        <div id="game-container" aria-label="首都戦記3Dゲーム"></div>
+        <div class="view-badge">三人称視点</div>
+      </div>
       <aside class="side-panel">
         <section class="panel-section">
           <h2>エリア</h2>
@@ -50,23 +62,23 @@
               </svg>
             </div>
             <div>
-              <div class="player-name" id="player-name">主人公</div>
+              <div class="player-name">主人公</div>
               <div class="player-role">フィールドエージェント</div>
             </div>
           </div>
-          <p class="panel-note">新宿・渋谷の2エリアを移動して探索できます。</p>
+          <p class="panel-note">新宿駅周辺・渋谷駅周辺の2エリアを三人称視点で探索できます。</p>
         </section>
         <section class="panel-section attribution">
           <h2>データ出典</h2>
           <p>
-            本作の地図データは、<strong>東京都デジタルツイン実現プロジェクト</strong>のデータ（
+            本作の3Dマップは、<strong>東京都デジタルツイン実現プロジェクト</strong>のデータ（
             <a href="https://creativecommons.org/licenses/by/4.0/deed.ja" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>
             ）を基に簡略化して作成しています。
           </p>
           <p class="attr-detail">
             出典：東京都デジタルツイン実現プロジェクト<br>
             ライセンス：CC BY 4.0<br>
-            変更：ゲーム用にエリア形状・ランドマークを簡略化
+            変更：新宿駅周辺・渋谷駅周辺の建物・ランドマークをゲーム用に簡略化
           </p>
         </section>
       </aside>
@@ -78,7 +90,6 @@
     </footer>
   </div>
 
-  <script src="data/areas.js"></script>
-  <script src="game.js"></script>
+  <script type="module" src="game.js"></script>
 </body>
 </html>

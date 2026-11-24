@@ -138,7 +138,7 @@ import * as THREE from 'three';
     occluders = [];
   }
 
-  function addCollider(x,z,w,d,pad=0.8){ colliders.push({minX:x-w/2-pad,maxX:x+w/2+pad,minZ:z-d/2-pad,maxZ:z+d/2+pad}); }
+  function addCollider(x,z,w,d,pad=0.8,poly=null){ colliders.push({minX:x-w/2-pad,maxX:x+w/2+pad,minZ:z-d/2-pad,maxZ:z+d/2+pad,poly}); }
   function addBounds(bounds){
     const t=8,w=bounds.maxX-bounds.minX,d=bounds.maxZ-bounds.minZ;
     const cx=(bounds.minX+bounds.maxX)/2, cz=(bounds.minZ+bounds.maxZ)/2;
@@ -799,7 +799,7 @@ import * as THREE from 'three';
         // collider (AABB of footprint)
         let bx1=Infinity,bx2=-Infinity,bz1=Infinity,bz2=-Infinity;
         for(const p of outer){ if(p[0]<bx1)bx1=p[0]; if(p[0]>bx2)bx2=p[0]; if(p[1]<bz1)bz1=p[1]; if(p[1]>bz2)bz2=p[1]; }
-        addCollider((bx1+bx2)/2,(bz1+bz2)/2,Math.max(1,bx2-bx1),Math.max(1,bz2-bz1),-0.35);
+        addCollider((bx1+bx2)/2,(bz1+bz2)/2,Math.max(1,bx2-bx1),Math.max(1,bz2-bz1),0.1,ring);
       }
       if(!geoms.length) continue;
       const merged = mergeGeometries(geoms);
@@ -1250,7 +1250,23 @@ import * as THREE from 'three';
 
   // --- Collision ---
   const playerRadius=0.32;
-  function collides(x,z){ for(const c of colliders){ if(x+playerRadius>c.minX && x-playerRadius<c.maxX && z+playerRadius>c.minZ && z-playerRadius<c.maxZ) return true; } return false; }
+  function pointInPoly(x,z,poly){
+    let inside=false;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+      const xi=poly[i][0], zi=poly[i][1], xj=poly[j][0], zj=poly[j][1];
+      if(((zi>z)!==(zj>z)) && (x < (xj-xi)*(z-zi)/((zj-zi)||1e-9)+xi)) inside=!inside;
+    }
+    return inside;
+  }
+  function collides(x,z){
+    for(const c of colliders){
+      if(x+playerRadius>c.minX && x-playerRadius<c.maxX && z+playerRadius>c.minZ && z-playerRadius<c.maxZ){
+        if(!c.poly) return true;
+        if(pointInPoly(x,z,c.poly)) return true;
+      }
+    }
+    return false;
+  }
   function tryMove(nx,nz){
     // If already stuck inside a collider, allow movement out
     if(collides(player.x,player.z)){ player.x=nx; player.z=nz; return; }
@@ -1440,7 +1456,49 @@ import * as THREE from 'three';
   buildGun(); buildStageUI(); resize(); initCharacterSelect(); updateStatsUI();
   mapToggle.addEventListener('click',()=>{ bigmap.classList.toggle('hidden'); if(!bigmap.classList.contains('hidden')) drawBigMap(); });
   bigmapClose.addEventListener('click',()=>bigmap.classList.add('hidden'));
-  startGameBtn.addEventListener('click',()=>{ if(stageData.shinjuku){ startGame(); } else { startGameBtn.textContent='読込中...'; startGameBtn.disabled=true; window.__pendingStart=true; } });
+  const AREAS = {
+    shinjuku: { name: '新宿', badge: 'STAGE: 新宿駅周辺 1/1', file: './data/shinjuku_plateau.json' },
+    machida:  { name: '町田', badge: 'STAGE: 町田駅前 1/1', file: './data/machida_plateau.json' }
+  };
+  let selectedArea = 'shinjuku';
+  const areaCache = {};
+  const areaOptionsEl = document.getElementById('area-options');
+  const stageBadgeEl = document.getElementById('stage-badge');
+  if(areaOptionsEl){
+    areaOptionsEl.querySelectorAll('.area-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        selectedArea = btn.dataset.area || 'shinjuku';
+        areaOptionsEl.querySelectorAll('.area-btn').forEach(b=>b.classList.toggle('selected', b===btn));
+        if(stageBadgeEl && AREAS[selectedArea]) stageBadgeEl.textContent = AREAS[selectedArea].badge;
+      });
+    });
+  }
+  startGameBtn.addEventListener('click', async ()=>{
+    const areaCfg = AREAS[selectedArea] || AREAS.shinjuku;
+    if(stageData.shinjuku && selectedArea === 'shinjuku' && !areaCache.shinjuku){
+      areaCache.shinjuku = stageData.shinjuku;
+    }
+    if(areaCache[selectedArea]){
+      stageData.shinjuku = areaCache[selectedArea];
+      startGame();
+      return;
+    }
+    startGameBtn.textContent = `${areaCfg.name}データ読込中...`;
+    startGameBtn.disabled = true;
+    try{
+      const r = await fetch(areaCfg.file);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const data = await r.json();
+      areaCache[selectedArea] = data;
+      stageData.shinjuku = data;
+      startGameBtn.disabled = false;
+      startGameBtn.textContent = '出撃する — BATTLE START';
+      startGame();
+    } catch(err){
+      startGameBtn.disabled = false;
+      startGameBtn.textContent = '読込エラー（再試行）';
+    }
+  });
   requestAnimationFrame(animate);
   minimapLabel.textContent = '新宿データ読込中...';
   fetch('./data/shinjuku_plateau.json')

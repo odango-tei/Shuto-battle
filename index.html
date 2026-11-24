@@ -62,12 +62,19 @@
           <div class="char-screen-brand">SHUTO BATTLE // 首都戦記</div>
           <h2>キャラクター選択</h2>
         </div>
-        <div class="stage-badge">STAGE: 新宿駅周辺 1/1</div>
+        <div id="stage-badge" class="stage-badge">STAGE: 新宿駅周辺 1/1</div>
       </div>
       <div class="char-layout">
         <div class="char-left">
           <div id="char-options" class="char-options"></div>
           <div class="battle-settings">
+            <div class="area-select-row">
+              <span class="area-label">エリア選択:</span>
+              <div id="area-options" class="area-options">
+                <button type="button" class="area-btn selected" data-area="shinjuku">新宿</button>
+                <button type="button" class="area-btn" data-area="machida">町田</button>
+              </div>
+            </div>
             <label class="enemy-count-label">
               <span>敵CPU数: <strong id="enemy-count-val">20</strong>体</span>
               <input id="enemy-count" type="range" min="3" max="99" value="20">

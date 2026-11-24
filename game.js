@@ -2,6 +2,13 @@ import * as THREE from 'three';
 
 (() => {
   "use strict";
+  function showErr(msg){
+    let el=document.getElementById('debug-err');
+    if(!el){ el=document.createElement('div'); el.id='debug-err'; el.style.cssText='position:fixed;left:8px;top:8px;z-index:9999;max-width:90vw;background:rgba(180,0,0,.85);color:#fff;padding:8px 10px;font:12px/1.4 monospace;white-space:pre-wrap;border-radius:6px;pointer-events:none'; document.body.appendChild(el); }
+    el.textContent += msg + '\n';
+  }
+  window.addEventListener('error', e=>showErr('ERR: '+(e.message||e.error)));
+  window.addEventListener('unhandledrejection', e=>showErr('REJ: '+(e.reason&&e.reason.message?e.reason.message:e.reason)));
 
   const container = document.getElementById('game-container');
   const stageSwitchEl = document.getElementById('stage-switch');
@@ -318,18 +325,35 @@ import * as THREE from 'three';
     return null;
   }
 
+  function canMoveFrom(x,z){
+    let free=0;
+    for(let a=0;a<8;a++){
+      const ang=a*Math.PI/4;
+      const nx=x+Math.cos(ang)*1.0, nz=z+Math.sin(ang)*1.0;
+      if(!collides(nx,nz)) free++;
+    }
+    return free>=3;
+  }
   function randomSafeSpawn(){
     const margin = 60; // keep away from edge bounds
     const minX = -980 + margin, maxX = 980 - margin;
     const minZ = -980 + margin, maxZ = 980 - margin;
-    for(let i=0; i<500; i++){
+    for(let i=0; i<800; i++){
       const x = minX + Math.random() * (maxX - minX);
       const z = minZ + Math.random() * (maxZ - minZ);
-      if(!collides(x, z)){
+      if(!collides(x, z) && canMoveFrom(x,z)){
         return {x, z, yaw: Math.random() * Math.PI * 2};
       }
     }
     // fallback: spiral from center
+    for(let r=5; r<=900; r+=5){
+      for(let a=0; a<24; a++){
+        const ang = (a/24)*Math.PI*2;
+        const x = Math.cos(ang)*r, z = Math.sin(ang)*r;
+        if(!collides(x,z) && canMoveFrom(x,z)) return {x, z, yaw: Math.random()*Math.PI*2};
+      }
+    }
+    // last resort
     for(let r=5; r<=900; r+=5){
       for(let a=0; a<24; a++){
         const ang = (a/24)*Math.PI*2;
@@ -365,7 +389,7 @@ import * as THREE from 'three';
   }
 
   // --- Input ---
-  const keyMap={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',a:'left',s:'down',d:'right',W:'up',A:'left',S:'down',D:'right'};
+  const keyMap={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',a:'left',s:'down',d:'right',W:'up',A:'left',S:'down',D:'right',q:'turnL',e:'turnR',Q:'turnL',E:'turnR'};
   window.addEventListener('keydown',e=>{const k=keyMap[e.key]; if(k){e.preventDefault(); keys.add(k);}});
   window.addEventListener('keyup',e=>{const k=keyMap[e.key]; if(k) keys.delete(k);});
   window.addEventListener('blur',()=>{keys.clear(); resetJoystick();});
@@ -389,10 +413,19 @@ import * as THREE from 'three';
       knob.style.transform='translate(-50%,-50%)';
       el.classList.remove('active');
     }
-    el.addEventListener('pointerdown', e=>{ e.preventDefault(); state.pointerId=e.pointerId; el.setPointerCapture(e.pointerId); setFromEvent(e); });
+    el.addEventListener('pointerdown', e=>{
+      e.preventDefault();
+      state.pointerId=e.pointerId;
+      try{ el.setPointerCapture(e.pointerId); }catch(_){}
+      setFromEvent(e);
+    });
     el.addEventListener('pointermove', e=>{ if(e.pointerId!==state.pointerId) return; e.preventDefault(); setFromEvent(e); });
     const end=e=>{ if(e.pointerId!==state.pointerId) return; e.preventDefault(); reset(); };
-    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    // window fallback in case pointer capture fails
+    window.addEventListener('pointermove', e=>{ if(e.pointerId!==state.pointerId) return; setFromEvent(e); });
+    window.addEventListener('pointerup', e=>{ if(e.pointerId!==state.pointerId) return; reset(); });
     return reset;
   }
   const resetMoveJoy = setupJoystick(moveStickEl, moveStickKnob, moveJoy);
@@ -542,6 +575,9 @@ import * as THREE from 'three';
       if(player.pitch > pLim) player.pitch = pLim;
       if(player.pitch < -pLim) player.pitch = -pLim;
     }
+    // keyboard turn (Q/E) for desktop
+    if(keys.has('turnL')) player.yaw += 2.2 * dt;
+    if(keys.has('turnR')) player.yaw -= 2.2 * dt;
     const moving=Math.hypot(ix,iy)>0.06;
     if(moving){
       const len=Math.hypot(ix,iy); if(len>1){ix/=len;iy/=len;}
@@ -549,9 +585,6 @@ import * as THREE from 'three';
       const fx=Math.sin(player.yaw), fz=Math.cos(player.yaw);
       const rx=Math.cos(player.yaw), rz=-Math.sin(player.yaw);
       const mx=fx*iy+rx*ix, mz=fz*iy+rz*ix; const ml=Math.hypot(mx,mz)||1;
-      const targetYaw=Math.atan2(mx/ml,mz/ml);
-      let dyaw=targetYaw-player.yaw; while(dyaw>Math.PI) dyaw-=Math.PI*2; while(dyaw<-Math.PI) dyaw+=Math.PI*2;
-      player.yaw += dyaw*Math.min(1,7*dt);
       tryMove(player.x+(mx/ml)*speed*dt, player.z+(mz/ml)*speed*dt);
       bobPhase+=dt*8;
     } else { bobPhase*=0.9; }
@@ -582,6 +615,8 @@ import * as THREE from 'three';
   document.addEventListener('gesturestart', e => e.preventDefault(), {passive:false});
   let lastTouchEnd = 0;
   document.addEventListener('touchend', e => {
+    const t = e.target;
+    if (t && t.closest && t.closest('.joystick, .action-btn, button')) { lastTouchEnd = Date.now(); return; }
     const now = Date.now();
     if (now - lastTouchEnd <= 300) e.preventDefault();
     lastTouchEnd = now;

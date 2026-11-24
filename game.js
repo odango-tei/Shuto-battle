@@ -567,7 +567,7 @@ import * as THREE from 'three';
         // collider (AABB of footprint)
         let bx1=Infinity,bx2=-Infinity,bz1=Infinity,bz2=-Infinity;
         for(const p of outer){ if(p[0]<bx1)bx1=p[0]; if(p[0]>bx2)bx2=p[0]; if(p[1]<bz1)bz1=p[1]; if(p[1]>bz2)bz2=p[1]; }
-        addCollider((bx1+bx2)/2,(bz1+bz2)/2,Math.max(1,bx2-bx1),Math.max(1,bz2-bz1),0.5);
+        addCollider((bx1+bx2)/2,(bz1+bz2)/2,Math.max(1,bx2-bx1),Math.max(1,bz2-bz1),-0.15);
       }
       if(!geoms.length) continue;
       const merged = mergeGeometries(geoms);
@@ -1016,7 +1016,17 @@ import * as THREE from 'three';
     if(collides(player.x,player.z)){ player.x=nx; player.z=nz; return; }
     if(!collides(nx,nz)){player.x=nx;player.z=nz;return;}
     if(!collides(nx,player.z)){player.x=nx;return;}
-    if(!collides(player.x,nz)){player.z=nz;}
+    if(!collides(player.x,nz)){player.z=nz;return;}
+    // nudge around AABB corners/overhangs
+    const dx=nx-player.x, dz=nz-player.z;
+    const len=Math.hypot(dx,dz)||1;
+    const px=-dz/len, pz=dx/len;
+    for(const d of [0.3,0.6,1.0,-0.3,-0.6,-1.0]){
+      const tx=nx+px*d, tz=nz+pz*d;
+      if(!collides(tx,tz)){player.x=tx;player.z=tz;return;}
+      if(!collides(tx,player.z)){player.x=tx;return;}
+      if(!collides(player.x,tz)){player.z=tz;return;}
+    }
   }
   function unstuckPlayer(){
     if(!collides(player.x,player.z)) return;

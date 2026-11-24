@@ -57,16 +57,30 @@
 
   <div id="char-select" class="char-select">
     <div class="char-card">
-      <div class="char-screen-brand">首都戦記</div>
-      <h2>キャラ選択</h2>
-      <p class="char-sub">プレイするキャラクターを選んでください</p>
-      <div id="char-preview" class="char-preview"></div>
-      <div id="char-options" class="char-options"></div>
-      <label class="enemy-count-label">敵CPU数: <span id="enemy-count-val">20</span>体
-        <input id="enemy-count" type="range" min="3" max="99" value="20">
-      </label>
-      <p class="char-note">面積は敵数に合わせて変化（最低半径200m）</p>
-      <button id="start-game" class="start-btn" type="button">開始</button>
+      <div class="char-header">
+        <div>
+          <div class="char-screen-brand">SHUTO BATTLE // 首都戦記</div>
+          <h2>キャラクター選択</h2>
+        </div>
+        <div class="stage-badge">STAGE: 新宿駅周辺 1/1</div>
+      </div>
+      <div class="char-layout">
+        <div class="char-left">
+          <div id="char-options" class="char-options"></div>
+          <div class="battle-settings">
+            <label class="enemy-count-label">
+              <span>敵CPU数: <strong id="enemy-count-val">20</strong>体</span>
+              <input id="enemy-count" type="range" min="3" max="99" value="20">
+            </label>
+            <p class="char-note">※ エリア面積は敵数に合わせて自動調整（最低半径200m）</p>
+          </div>
+        </div>
+        <div class="char-right">
+          <div id="char-preview" class="char-preview"></div>
+          <div id="char-stats" class="char-stats"></div>
+        </div>
+      </div>
+      <button id="start-game" class="start-btn" type="button">出撃する — BATTLE START</button>
     </div>
   </div>
 

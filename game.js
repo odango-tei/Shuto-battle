@@ -13,26 +13,38 @@ import * as THREE from 'three';
 
   // --- Renderer / Scene / Camera ---
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x9ec5dc);
-  scene.fog = new THREE.Fog(0x9ec5dc, 250, 1400);
+  scene.background = new THREE.Color(0xbfdcf0);
+  scene.fog = new THREE.Fog(0xbfdcf0, 350, 1600);
 
   const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 2500);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
   container.appendChild(renderer.domElement);
 
-  scene.add(new THREE.HemisphereLight(0xe8f4ff, 0x556677, 1.05));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.15);
-  sun.position.set(200, 350, 150);
+  scene.add(new THREE.HemisphereLight(0xfff3d6, 0x6b7c8f, 0.75));
+  const sun = new THREE.DirectionalLight(0xfff1cc, 2.2);
+  sun.position.set(260, 420, 180);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  const sd = 600;
+  const sd = 650;
   sun.shadow.camera.left = -sd; sun.shadow.camera.right = sd;
   sun.shadow.camera.top = sd; sun.shadow.camera.bottom = -sd;
-  sun.shadow.camera.near = 1; sun.shadow.camera.far = 1200;
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 1400;
+  sun.shadow.bias = -0.0005;
   scene.add(sun);
+  scene.add(sun.target);
+
+  // visible sun
+  const sunMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(18, 24, 24),
+    new THREE.MeshBasicMaterial({ color: 0xfff6c9 })
+  );
+  sunMesh.position.copy(sun.position).multiplyScalar(1.6);
+  scene.add(sunMesh);
 
   // --- State ---
   let colliders = [];
@@ -150,8 +162,19 @@ import * as THREE from 'three';
       chunks.get(k).push(b);
     }
 
-    const bldMat = new THREE.MeshStandardMaterial({color:0x8a99ad, roughness:0.55, metalness:0.1, transparent:true, opacity:1});
-    const bldGeos = []; // for per-chunk mesh
+    const bldMat = new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.62, metalness:0.08, transparent:true, opacity:1});
+    function buildingColor(usage){
+      const u = usage || '';
+      if(u.includes('住宅')) return [0.91, 0.86, 0.78]; // warm beige
+      if(u.includes('業務')) return [0.78, 0.83, 0.88]; // light blue-gray
+      if(u.includes('商業')) return [0.86, 0.84, 0.80]; // light stone
+      if(u.includes('文教厚生')) return [0.88, 0.86, 0.76]; // pale sand
+      if(u.includes('宿泊')) return [0.84, 0.87, 0.82]; // soft sage-gray
+      if(u.includes('官公庁')) return [0.82, 0.84, 0.86]; // civic gray
+      if(u.includes('運輸倉庫')) return [0.80, 0.80, 0.78]; // concrete
+      if(u.includes('工場')||u.includes('供給処理')) return [0.78, 0.79, 0.77];
+      return [0.83, 0.85, 0.87]; // default light concrete
+    }
     for (const [k, blist] of chunks) {
       const geoms = [];
       let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity, maxY=0;
@@ -171,6 +194,12 @@ import * as THREE from 'three';
         const geo = new THREE.ExtrudeGeometry(shape, {depth: h, bevelEnabled:false});
         geo.rotateX(-Math.PI/2);
         geo.translate(0, base, 0);
+        // vertex colors
+        const col = buildingColor(b.u);
+        const pos = geo.attributes.position;
+        const colArr = new Float32Array(pos.count*3);
+        for(let i=0;i<pos.count;i++){ colArr[i*3]=col[0]; colArr[i*3+1]=col[1]; colArr[i*3+2]=col[2]; }
+        geo.setAttribute('color', new THREE.BufferAttribute(colArr,3));
         geoms.push(geo);
 
         for(const p of outer){ if(p[0]<minX)minX=p[0]; if(p[0]>maxX)maxX=p[0]; if(p[1]<minZ)minZ=p[1]; if(p[1]>maxZ)maxZ=p[1]; }
@@ -219,16 +248,17 @@ import * as THREE from 'three';
     const valid = geoms.filter(g=>g && g.attributes.position);
     if(!valid.length) return null;
     let totalVerts=0, totalIdx=0;
-    let hasNormal=false, hasUv=false;
+    let hasNormal=false, hasColor=false;
     for(const g of valid){
       const pos=g.attributes.position;
       totalVerts += pos.count;
       totalIdx += g.index ? g.index.count : pos.count;
       if(g.attributes.normal) hasNormal=true;
-      if(g.attributes.uv) hasUv=true;
+      if(g.attributes.color) hasColor=true;
     }
     const posArr = new Float32Array(totalVerts*3);
     const normArr = hasNormal ? new Float32Array(totalVerts*3) : null;
+    const colArr = hasColor ? new Float32Array(totalVerts*3) : null;
     const idxArr = (totalVerts > 65535) ? new Uint32Array(totalIdx) : new Uint16Array(totalIdx);
     let vOff=0, iOff=0;
     for(const g of valid){
@@ -237,6 +267,11 @@ import * as THREE from 'three';
       if(normArr){
         const n=g.attributes.normal;
         if(n) normArr.set(n.array, vOff*3);
+      }
+      if(colArr){
+        const c=g.attributes.color;
+        if(c) colArr.set(c.array, vOff*3);
+        else { for(let i=0;i<pos.count;i++){ colArr[(vOff+i)*3]=0.8; colArr[(vOff+i)*3+1]=0.8; colArr[(vOff+i)*3+2]=0.8; } }
       }
       const idx=g.index;
       if(idx){
@@ -252,6 +287,7 @@ import * as THREE from 'three';
     out.setAttribute('position', new THREE.BufferAttribute(posArr,3));
     if(normArr) out.setAttribute('normal', new THREE.BufferAttribute(normArr,3));
     else out.computeVertexNormals();
+    if(colArr) out.setAttribute('color', new THREE.BufferAttribute(colArr,3));
     out.setIndex(new THREE.BufferAttribute(idxArr,1));
     return out;
   }
@@ -435,6 +471,16 @@ import * as THREE from 'three';
   }
 
   // --- Init ---
+  // prevent tap/double-tap zoom on mobile
+  document.addEventListener('dblclick', e => e.preventDefault(), {passive:false});
+  document.addEventListener('gesturestart', e => e.preventDefault(), {passive:false});
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) e.preventDefault();
+    lastTouchEnd = now;
+  }, {passive:false});
+
   buildGun(); buildStageUI(); resize(); requestAnimationFrame(animate);
   minimapLabel.textContent = '新宿データ読込中...';
   fetch('./data/shinjuku_plateau.json')

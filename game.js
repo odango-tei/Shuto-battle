@@ -799,7 +799,7 @@ import * as THREE from 'three';
         // collider (AABB of footprint)
         let bx1=Infinity,bx2=-Infinity,bz1=Infinity,bz2=-Infinity;
         for(const p of outer){ if(p[0]<bx1)bx1=p[0]; if(p[0]>bx2)bx2=p[0]; if(p[1]<bz1)bz1=p[1]; if(p[1]>bz2)bz2=p[1]; }
-        addCollider((bx1+bx2)/2,(bz1+bz2)/2,Math.max(1,bx2-bx1),Math.max(1,bz2-bz1),0.1,ring);
+        addCollider((bx1+bx2)/2,(bz1+bz2)/2,Math.max(1,bx2-bx1),Math.max(1,bz2-bz1),0.1,outer);
       }
       if(!geoms.length) continue;
       const merged = mergeGeometries(geoms);

@@ -973,7 +973,8 @@ import * as THREE from 'three';
     }
 
     // Station center marker
-    const centerLabel = makeLabel('新宿駅', '#fde68a');
+    const centerName = (data.meta && data.meta.center && data.meta.center.name) ? data.meta.center.name : '新宿駅';
+    const centerLabel = makeLabel(centerName, '#fde68a');
     centerLabel.position.set(0, 18, 0);
     group.add(centerLabel);
 
@@ -1130,7 +1131,7 @@ import * as THREE from 'three';
 
   function updateStageUI(){
     const def=getStageDef(currentStageId);
-    minimapLabel.textContent = def ? def.name : '-';
+    minimapLabel.textContent = (selectedArea === 'machida') ? '町田駅前' : (def ? def.name : '-');
   }
 
   function buildStageUI(){

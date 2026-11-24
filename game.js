@@ -34,6 +34,7 @@ import * as THREE from 'three';
   const bigmapCtx = bigmapCanvas.getContext('2d');
   const hpTagsEl = document.getElementById('hp-tags');
   const charSelect = document.getElementById('char-select');
+  const charPreview = document.getElementById('char-preview');
   const charOptions = document.getElementById('char-options');
   const enemyCountInput = document.getElementById('enemy-count');
   const enemyCountVal = document.getElementById('enemy-count-val');
@@ -87,10 +88,8 @@ import * as THREE from 'three';
   let activeGroups = [];
   // gameplay
   const CHARACTERS = [
-    {id:'runner', name:'ランナー', icon:'🏃', desc:'スタミナ回復が速い', hp:100, stamina:120, genki:100, speed:1.1, staminaRegen:1.3},
-    {id:'soldier', name:'ソルジャー', icon:'🪖', desc:'HPが高い', hp:130, stamina:100, genki:90, speed:1.0, staminaRegen:1.0},
-    {id:'engineer', name:'エンジニア', icon:'🛠️', desc:'元気度が高い', hp:100, stamina:100, genki:130, speed:1.0, staminaRegen:1.0},
-    {id:'medic', name:'メディック', icon:'⛑️', desc:'回復効果が高い', hp:110, stamina:90, genki:110, speed:0.98, staminaRegen:1.0, healBonus:1.3},
+    {id:'basque', name:'バスク', icon:'🔫', weapon:'gun', desc:'銃で正確に遠距離攻撃', hp:110, stamina:100, genki:100, speed:1.0, staminaRegen:1.0},
+    {id:'aaaa', name:'ああああ', icon:'💨', weapon:'fart', desc:'オナラ爆弾で周囲に範囲ダメージ', hp:120, stamina:110, genki:120, speed:1.05, staminaRegen:1.1},
   ];
   let selectedChar = CHARACTERS[0];
   let gameStarted = false;
@@ -274,6 +273,7 @@ import * as THREE from 'three';
       if(!e.alive || !e.mesh) continue;
       const dx=player.x-e.x, dz=player.z-e.z;
       const dist=Math.hypot(dx,dz);
+      e.mesh.visible = dist <= 10;
       e.turnT -= dt;
       if(dist < 80){
         e.dir = Math.atan2(dx,dz);
@@ -312,14 +312,12 @@ import * as THREE from 'three';
   }
 
   function shootAtEnemies(){
-    if(shootCooldownPlayer>0) return;
-    shootCooldownPlayer=0.22;
-    // muzzle/tracer handled in doShoot visual; here apply damage
+    // apply damage (visual handled in doShoot)
     const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
     const origin=camera.position.clone();
     let best=null, bestT=999;
     for(const e of enemies){
-      if(!e.alive) continue;
+      if(!e.alive || !e.mesh || !e.mesh.visible) continue;
       // ray-sphere-ish test against body
       const cx=e.x, cy=1.2+0.35, cz=e.z, r=0.8;
       const ox=origin.x-cx, oy=origin.y-cy, oz=origin.z-cz;
@@ -350,7 +348,7 @@ import * as THREE from 'three';
     }
     for(const e of enemies){
       if(!e.alive) continue;
-      const dx=e.x-player.x, dz=e.z-player.z; if(dx*dx+dz*dz>80*80) continue;
+      const dx=e.x-player.x, dz=e.z-player.z; if(dx*dx+dz*dz>10*10) continue;
       const s=camToScreen(e.x, 2.7, e.z); if(!s) continue;
       const d=document.createElement('div'); d.className='hp-tag enemy'; d.style.left=s.x+'px'; d.style.top=s.y+'px';
       d.innerHTML=`<div class="name">CPU</div><div class="bar"><i style="width:${100*e.hp/e.maxHp}%"></i></div>`;
@@ -391,6 +389,49 @@ import * as THREE from 'three';
     ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+Math.cos(a)*14,py+Math.sin(a)*14); ctx.stroke();
   }
 
+  function renderCharPreview(c){
+    charPreview.innerHTML='';
+    const canvas=document.createElement('canvas');
+    canvas.width=240; canvas.height=240; canvas.className='char-preview-canvas';
+    const ctx=canvas.getContext('2d');
+    // bg
+    const grd=ctx.createLinearGradient(0,0,0,240); grd.addColorStop(0,'#334155'); grd.addColorStop(1,'#0f172a');
+    ctx.fillStyle=grd; ctx.fillRect(0,0,240,240);
+    // ground
+    ctx.fillStyle='#475569'; ctx.fillRect(0,190,240,50);
+    // body
+    ctx.fillStyle = c.id==='basque' ? '#2563eb' : '#65a30d';
+    roundRectCtx(ctx,95,95,50,70,10); ctx.fill();
+    // head
+    ctx.fillStyle='#f1c27d'; ctx.beginPath(); ctx.arc(120,75,24,0,Math.PI*2); ctx.fill();
+    // eyes
+    ctx.fillStyle='#111827'; ctx.beginPath(); ctx.arc(112,72,3,0,Math.PI*2); ctx.arc(128,72,3,0,Math.PI*2); ctx.fill();
+    // legs
+    ctx.strokeStyle='#1e293b'; ctx.lineWidth=8; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(108,160); ctx.lineTo(100,195); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(132,160); ctx.lineTo(140,195); ctx.stroke();
+    if(c.weapon==='gun'){
+      // gun
+      ctx.fillStyle='#374151'; ctx.fillRect(138,105,45,12);
+      ctx.fillRect(150,115,12,22);
+      ctx.fillStyle='#fbbf24'; ctx.fillRect(180,108,6,6);
+      ctx.fillStyle='#e5e7eb'; ctx.font='bold 16px sans-serif'; ctx.fillText('銃', 190, 145);
+    } else {
+      // fart bomb
+      ctx.fillStyle='#7cb342'; ctx.beginPath(); ctx.arc(155,125,14,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#33691e'; ctx.font='bold 18px sans-serif'; ctx.fillText('💨', 165, 105);
+      ctx.fillStyle='#d9f99d'; ctx.font='bold 14px sans-serif'; ctx.fillText('オナラ爆弾', 130, 160);
+      // gas
+      ctx.fillStyle='rgba(163,230,53,0.25)';
+      ctx.beginPath(); ctx.arc(60,140,28,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(40,120,18,0,Math.PI*2); ctx.fill();
+    }
+    const info=document.createElement('div'); info.className='char-preview-info';
+    info.innerHTML=`<div class="pname">${c.icon} ${c.name}</div><div class="pweapon">${c.weapon==='gun'?'銃':'オナラ爆弾'}</div><div class="pdesc">${c.desc}</div><div class="pstats">HP ${c.hp} / スタミナ ${c.stamina} / 元気度 ${c.genki}</div>`;
+    charPreview.appendChild(canvas);
+    charPreview.appendChild(info);
+  }
+
   function initCharacterSelect(){
     charOptions.innerHTML='';
     CHARACTERS.forEach((c,idx)=>{
@@ -398,9 +439,11 @@ import * as THREE from 'three';
       btn.innerHTML=`<span class="icon">${c.icon}</span><span class="nm">${c.name}</span><span class="desc">${c.desc}</span>`;
       btn.addEventListener('click',()=>{
         selectedChar=c; charOptions.querySelectorAll('.char-opt').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected');
+        renderCharPreview(c);
       });
       charOptions.appendChild(btn);
     });
+    renderCharPreview(selectedChar);
     enemyCountVal.textContent=String(enemyCountInput.value);
     enemyCountInput.addEventListener('input',()=>{ enemyCountVal.textContent=String(enemyCountInput.value); });
   }
@@ -412,6 +455,7 @@ import * as THREE from 'three';
     stats.maxStamina=selectedChar.stamina; stats.stamina=selectedChar.stamina;
     stats.maxGenki=selectedChar.genki; stats.genki=selectedChar.genki;
     updateStatsUI();
+    shootBtn.textContent = selectedChar.weapon === 'fart' ? 'オナラ爆弾' : '撃つ';
     charSelect.classList.add('hidden');
     gameStarted=true;
     spawnEnemies();
@@ -876,9 +920,45 @@ import * as THREE from 'three';
   function doJump(){
     if(player.grounded){ player.vy = 7.5; player.grounded = false; }
   }
+  function fartBombAttack(){
+    const radius = 6;
+    const center = new THREE.Vector3(player.x, 1.0, player.z);
+    const cloud = new THREE.Mesh(
+      new THREE.SphereGeometry(radius, 20, 16),
+      new THREE.MeshStandardMaterial({color:0x7cb342, emissive:0x33691e, emissiveIntensity:0.6, transparent:true, opacity:0.35, depthWrite:false})
+    );
+    cloud.position.copy(center);
+    scene.add(cloud);
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.5, radius, 32),
+      new THREE.MeshBasicMaterial({color:0xaed581, transparent:true, opacity:0.45, side:THREE.DoubleSide})
+    );
+    ring.rotation.x = -Math.PI/2; ring.position.set(player.x, 0.5, player.z);
+    scene.add(ring);
+    let t0 = performance.now();
+    const anim = setInterval(()=>{
+      const t = (performance.now()-t0)/1000;
+      cloud.scale.setScalar(0.6 + t*1.2);
+      cloud.material.opacity = Math.max(0, 0.35 - t*0.25);
+      ring.scale.setScalar(0.8 + t*1.5);
+      ring.material.opacity = Math.max(0, 0.45 - t*0.35);
+      if(t>1.2){ clearInterval(anim); scene.remove(cloud); scene.remove(ring); cloud.geometry.dispose(); cloud.material.dispose(); ring.geometry.dispose(); ring.material.dispose(); }
+    }, 50);
+    for(const e of enemies){
+      if(!e.alive) continue;
+      const dx=e.x-player.x, dz=e.z-player.z;
+      if(dx*dx+dz*dz <= radius*radius){ damageEnemy(e, 35); }
+    }
+  }
+
   function doShoot(){
+    const isFart = selectedChar && selectedChar.weapon === 'fart';
     if(shootCooldownPlayer > 0) return;
-    shootCooldownPlayer = 0.22;
+    shootCooldownPlayer = isFart ? 0.9 : 0.22;
+    if(isFart){
+      fartBombAttack();
+      return;
+    }
     // muzzle flash
     const flash = new THREE.PointLight(0xfff2a8, 8, 8);
     const muzzle = new THREE.Vector3(0.28,-0.22,-1.2).applyMatrix4(camera.matrixWorld);

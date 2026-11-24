@@ -391,45 +391,46 @@ import * as THREE from 'three';
 
   function renderCharPreview(c){
     charPreview.innerHTML='';
+    const wrap=document.createElement('div'); wrap.style.cssText='display:flex;gap:14px;align-items:center;width:100%';
     const canvas=document.createElement('canvas');
-    canvas.width=240; canvas.height=240; canvas.className='char-preview-canvas';
+    canvas.width=260; canvas.height=260; canvas.className='char-preview-canvas';
     const ctx=canvas.getContext('2d');
-    // bg
-    const grd=ctx.createLinearGradient(0,0,0,240); grd.addColorStop(0,'#334155'); grd.addColorStop(1,'#0f172a');
-    ctx.fillStyle=grd; ctx.fillRect(0,0,240,240);
-    // ground
-    ctx.fillStyle='#475569'; ctx.fillRect(0,190,240,50);
+    const grd=ctx.createLinearGradient(0,0,0,260); grd.addColorStop(0,'#3b82f6'); grd.addColorStop(1,'#0f172a');
+    ctx.fillStyle=grd; ctx.fillRect(0,0,260,260);
+    ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,200,260,60);
+    ctx.fillStyle='#94a3b8'; ctx.font='bold 13px sans-serif'; ctx.fillText('キャラプレビュー', 10, 22);
+    // shadow
+    ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(130,205,38,10,0,0,Math.PI*2); ctx.fill();
     // body
-    ctx.fillStyle = c.id==='basque' ? '#2563eb' : '#65a30d';
-    roundRectCtx(ctx,95,95,50,70,10); ctx.fill();
+    ctx.fillStyle = c.id==='basque' ? '#3b82f6' : '#84cc16';
+    roundRectCtx(ctx,100,105,60,72,12); ctx.fill();
     // head
-    ctx.fillStyle='#f1c27d'; ctx.beginPath(); ctx.arc(120,75,24,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#f5cba7'; ctx.beginPath(); ctx.arc(130,78,28,0,Math.PI*2); ctx.fill();
     // eyes
-    ctx.fillStyle='#111827'; ctx.beginPath(); ctx.arc(112,72,3,0,Math.PI*2); ctx.arc(128,72,3,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#111827'; ctx.beginPath(); ctx.arc(121,74,4,0,Math.PI*2); ctx.arc(139,74,4,0,Math.PI*2); ctx.fill();
+    // mouth
+    ctx.strokeStyle='#111827'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(130,86,7,0,Math.PI); ctx.stroke();
     // legs
-    ctx.strokeStyle='#1e293b'; ctx.lineWidth=8; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(108,160); ctx.lineTo(100,195); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(132,160); ctx.lineTo(140,195); ctx.stroke();
+    ctx.strokeStyle='#1f2937'; ctx.lineWidth=10; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(116,172); ctx.lineTo(106,205); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(144,172); ctx.lineTo(154,205); ctx.stroke();
     if(c.weapon==='gun'){
-      // gun
-      ctx.fillStyle='#374151'; ctx.fillRect(138,105,45,12);
-      ctx.fillRect(150,115,12,22);
-      ctx.fillStyle='#fbbf24'; ctx.fillRect(180,108,6,6);
-      ctx.fillStyle='#e5e7eb'; ctx.font='bold 16px sans-serif'; ctx.fillText('銃', 190, 145);
+      ctx.fillStyle='#475569'; ctx.fillRect(150,112,60,14);
+      ctx.fillRect(162,124,14,26);
+      ctx.fillStyle='#fbbf24'; ctx.fillRect(206,115,8,8);
+      ctx.fillStyle='#fff'; ctx.font='bold 20px sans-serif'; ctx.fillText('🔫 銃', 160, 170);
     } else {
-      // fart bomb
-      ctx.fillStyle='#7cb342'; ctx.beginPath(); ctx.arc(155,125,14,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#33691e'; ctx.font='bold 18px sans-serif'; ctx.fillText('💨', 165, 105);
-      ctx.fillStyle='#d9f99d'; ctx.font='bold 14px sans-serif'; ctx.fillText('オナラ爆弾', 130, 160);
-      // gas
-      ctx.fillStyle='rgba(163,230,53,0.25)';
-      ctx.beginPath(); ctx.arc(60,140,28,0,Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(40,120,18,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#65a30d'; ctx.beginPath(); ctx.arc(170,128,18,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#365314'; ctx.font='bold 22px sans-serif'; ctx.fillText('💣', 160, 135);
+      ctx.fillStyle='#ecfccb'; ctx.font='bold 18px sans-serif'; ctx.fillText('💨 オナラ爆弾', 70, 185);
+      ctx.fillStyle='rgba(163,230,53,0.28)';
+      ctx.beginPath(); ctx.arc(55,145,30,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(35,125,20,0,Math.PI*2); ctx.fill();
     }
     const info=document.createElement('div'); info.className='char-preview-info';
-    info.innerHTML=`<div class="pname">${c.icon} ${c.name}</div><div class="pweapon">${c.weapon==='gun'?'銃':'オナラ爆弾'}</div><div class="pdesc">${c.desc}</div><div class="pstats">HP ${c.hp} / スタミナ ${c.stamina} / 元気度 ${c.genki}</div>`;
-    charPreview.appendChild(canvas);
-    charPreview.appendChild(info);
+    info.innerHTML=`<div class="pname">${c.icon} ${c.name}</div><div class="pweapon">${c.weapon==='gun'?'武器: 銃':'武器: オナラ爆弾'}</div><div class="pdesc">${c.desc}</div><div class="pstats">HP ${c.hp}<br>スタミナ ${c.stamina}<br>元気度 ${c.genki}</div>`;
+    wrap.appendChild(canvas); wrap.appendChild(info);
+    charPreview.appendChild(wrap);
   }
 
   function initCharacterSelect(){

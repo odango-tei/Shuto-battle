@@ -1479,7 +1479,10 @@ import * as THREE from 'three';
       areaCache.shinjuku = stageData.shinjuku;
     }
     if(areaCache[selectedArea]){
-      stageData.shinjuku = areaCache[selectedArea];
+      if(stageData.shinjuku !== areaCache[selectedArea]){
+        stageData.shinjuku = areaCache[selectedArea];
+        switchStage('shinjuku');
+      }
       startGame();
       return;
     }
@@ -1491,12 +1494,14 @@ import * as THREE from 'three';
       const data = await r.json();
       areaCache[selectedArea] = data;
       stageData.shinjuku = data;
+      switchStage('shinjuku');
       startGameBtn.disabled = false;
       startGameBtn.textContent = '出撃する — BATTLE START';
       startGame();
     } catch(err){
+      console.error('Area load/start error:', err);
       startGameBtn.disabled = false;
-      startGameBtn.textContent = '読込エラー（再試行）';
+      startGameBtn.textContent = `読込エラー: ${err && err.message ? err.message : '再試行'}`;
     }
   });
   requestAnimationFrame(animate);

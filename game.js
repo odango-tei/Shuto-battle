@@ -566,7 +566,7 @@ import * as THREE from 'three';
     const dt=Math.min((ts-lastTime)/1000,0.05); lastTime=ts;
     let ix=0,iy=0;
     if(keys.has('up')) iy+=1; if(keys.has('down')) iy-=1; if(keys.has('left')) ix-=1; if(keys.has('right')) ix+=1;
-    if(moveJoy.active){ ix+=moveJoy.x; iy-=moveJoy.y; }
+    if(moveJoy.active){ ix+=moveJoy.x; iy+=moveJoy.y; }
     // look stick
     if(lookJoy.active){
       player.yaw -= lookJoy.x * 2.2 * dt;

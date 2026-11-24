@@ -123,10 +123,11 @@ html, body {
 .hp-tag.enemy .bar i { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
 
 /* Character select */
-.char-select { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; background:rgba(2,6,23,0.65); backdrop-filter: blur(4px); }
+.char-select { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; background:linear-gradient(180deg,#0b1220 0%,#111827 45%,#1a2235 100%); overflow:auto; padding:24px 16px; }
 .char-select.hidden { display:none; }
-.char-card { width:min(560px, calc(100vw - 32px)); background:rgba(15,23,42,0.95); color:#fff; border:1px solid rgba(255,255,255,0.15); border-radius:16px; padding:20px; box-shadow:0 20px 50px rgba(0,0,0,0.45); }
-.char-card h2 { margin:0 0 4px; font-size:24px; }
+.char-card { width:min(720px, calc(100vw - 32px)); background:rgba(15,23,42,0.92); color:#fff; border:1px solid rgba(255,255,255,0.12); border-radius:18px; padding:28px; box-shadow:0 24px 60px rgba(0,0,0,0.5); }
+.char-screen-brand { font-size:13px; font-weight:800; letter-spacing:0.18em; color:#93c5fd; margin-bottom:6px; }
+.char-card h2 { margin:0 0 4px; font-size:28px; }
 .char-sub { margin:0 0 14px; color:#cbd5e1; font-size:14px; }
 .char-options { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:10px; margin-bottom:14px; }
 .char-opt { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:10px; padding:10px; cursor:pointer; text-align:left; font-family:inherit; }

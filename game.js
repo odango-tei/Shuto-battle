@@ -57,7 +57,7 @@ import * as THREE from 'three';
   const keys = new Set();
   const moveJoy = { active: false, x: 0, y: 0, pointerId: null };
   const lookJoy = { active: false, x: 0, y: 0, pointerId: null };
-  const player = { x: 0, y: 1.7, z: 0, yaw: Math.PI, pitch: 0, vy: 0, grounded: true };
+  const player = { x: 0, y: 2.05, z: 0, yaw: Math.PI, pitch: 0, vy: 0, grounded: true };
   const raycaster = new THREE.Raycaster();
   let stageData = { shinjuku: null };
   let activeGroups = [];
@@ -195,7 +195,7 @@ import * as THREE from 'three';
           shape.holes.push(hole);
         }
         const h = Math.max(2, b.h || 3);
-        const base = (b.g || 35) - 35; // relative to station ground ~35m
+        const base = 0.36; // sit on flat ground
         const geo = new THREE.ExtrudeGeometry(shape, {depth: h, bevelEnabled:false});
         geo.rotateX(-Math.PI/2);
         geo.translate(0, base, 0);
@@ -314,7 +314,7 @@ import * as THREE from 'three';
 
   // --- Stages ---
   function getStageDef(id){
-    if(id==='shinjuku') return {id:'shinjuku', name:'新宿駅周辺', shortName:'新宿', spawn:{x:0,z:40,yaw:Math.PI}};
+    if(id==='shinjuku') return {id:'shinjuku', name:'新宿駅周辺', shortName:'新宿', spawn:{x:0,z:55,yaw:Math.PI}};
     return null;
   }
 
@@ -327,10 +327,8 @@ import * as THREE from 'three';
     } else {
       clearStageObjects();
     }
-    player.x=def.spawn.x; player.z=def.spawn.z; player.y=1.7; player.yaw=def.spawn.yaw; player.pitch=0; player.vy=0; player.grounded=true;
-    for(let r=0;r<20 && collides(player.x,player.z);r++){
-      player.x += (Math.random()-0.5)*4; player.z += (Math.random()-0.5)*4;
-    }
+    player.x=def.spawn.x; player.z=def.spawn.z; player.y=2.05; player.yaw=def.spawn.yaw; player.pitch=0; player.vy=0; player.grounded=true;
+    unstuckPlayer();
     keys.clear(); resetJoystick(); updateStageUI();
   }
 
@@ -411,7 +409,26 @@ import * as THREE from 'three';
   // --- Collision ---
   const playerRadius=0.45;
   function collides(x,z){ for(const c of colliders){ if(x+playerRadius>c.minX && x-playerRadius<c.maxX && z+playerRadius>c.minZ && z-playerRadius<c.maxZ) return true; } return false; }
-  function tryMove(nx,nz){ if(!collides(nx,nz)){player.x=nx;player.z=nz;return;} if(!collides(nx,player.z)){player.x=nx;return;} if(!collides(player.x,nz)){player.z=nz;} }
+  function tryMove(nx,nz){
+    // If already stuck inside a collider, allow movement out
+    if(collides(player.x,player.z)){ player.x=nx; player.z=nz; return; }
+    if(!collides(nx,nz)){player.x=nx;player.z=nz;return;}
+    if(!collides(nx,player.z)){player.x=nx;return;}
+    if(!collides(player.x,nz)){player.z=nz;}
+  }
+  function unstuckPlayer(){
+    if(!collides(player.x,player.z)) return;
+    const sx=player.x, sz=player.z;
+    for(let r=1; r<=200; r+=1){
+      const step = Math.max(1, r*0.5);
+      for(let a=0; a<16; a++){
+        const ang = (a/16)*Math.PI*2;
+        const nx = sx + Math.cos(ang)*step;
+        const nz = sz + Math.sin(ang)*step;
+        if(!collides(nx,nz)){ player.x=nx; player.z=nz; return; }
+      }
+    }
+  }
 
   // --- Occlusion ---
   function updateOcclusion(){
@@ -520,11 +537,11 @@ import * as THREE from 'three';
     if(!player.grounded || player.vy > 0){
       player.vy -= 18 * dt;
       player.y += player.vy * dt;
-      if(player.y <= 1.7){
-        player.y = 1.7; player.vy = 0; player.grounded = true;
+      if(player.y <= 2.05){
+        player.y = 2.05; player.vy = 0; player.grounded = true;
       }
     } else {
-      player.y = 1.7;
+      player.y = 2.05;
     }
     const bob=Math.sin(bobPhase)*(moving && player.grounded ? 0.035:0);
     camera.position.set(player.x, player.y+bob, player.z);

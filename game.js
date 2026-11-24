@@ -21,6 +21,23 @@ import * as THREE from 'three';
   const minimap = document.getElementById('minimap');
   const minimapLabel = document.getElementById('minimap-label');
   const mmCtx = minimap.getContext('2d');
+  const barHp = document.getElementById('bar-hp');
+  const barStamina = document.getElementById('bar-stamina');
+  const barGenki = document.getElementById('bar-genki');
+  const valHp = document.getElementById('val-hp');
+  const valStamina = document.getElementById('val-stamina');
+  const valGenki = document.getElementById('val-genki');
+  const mapToggle = document.getElementById('map-toggle');
+  const bigmap = document.getElementById('bigmap');
+  const bigmapClose = document.getElementById('bigmap-close');
+  const bigmapCanvas = document.getElementById('bigmap-canvas');
+  const bigmapCtx = bigmapCanvas.getContext('2d');
+  const hpTagsEl = document.getElementById('hp-tags');
+  const charSelect = document.getElementById('char-select');
+  const charOptions = document.getElementById('char-options');
+  const enemyCountInput = document.getElementById('enemy-count');
+  const enemyCountVal = document.getElementById('enemy-count-val');
+  const startGameBtn = document.getElementById('start-game');
 
   // --- Renderer / Scene / Camera ---
   const scene = new THREE.Scene();
@@ -68,6 +85,22 @@ import * as THREE from 'three';
   const raycaster = new THREE.Raycaster();
   let stageData = { shinjuku: null };
   let activeGroups = [];
+  // gameplay
+  const CHARACTERS = [
+    {id:'runner', name:'ランナー', icon:'🏃', desc:'スタミナ回復が速い', hp:100, stamina:120, genki:100, speed:1.1, staminaRegen:1.3},
+    {id:'soldier', name:'ソルジャー', icon:'🪖', desc:'HPが高い', hp:130, stamina:100, genki:90, speed:1.0, staminaRegen:1.0},
+    {id:'engineer', name:'エンジニア', icon:'🛠️', desc:'元気度が高い', hp:100, stamina:100, genki:130, speed:1.0, staminaRegen:1.0},
+    {id:'medic', name:'メディック', icon:'⛑️', desc:'回復効果が高い', hp:110, stamina:90, genki:110, speed:0.98, staminaRegen:1.0, healBonus:1.3},
+  ];
+  let selectedChar = CHARACTERS[0];
+  let gameStarted = false;
+  let enemyCount = 20;
+  let playRadius = 400;
+  const stats = {hp:100, maxHp:100, stamina:100, maxStamina:100, genki:100, maxGenki:100};
+  let enemies = [];
+  let items = [];
+  let hpTagPool = [];
+  let shootCooldownPlayer = 0;
 
   // --- Helpers ---
   function roundRectCtx(ctx, x, y, w, h, r) {
@@ -96,6 +129,9 @@ import * as THREE from 'three';
       scene.remove(obj);
       obj.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (Array.isArray(o.material)) o.material.forEach(m=>m.dispose()); else o.material.dispose(); } });
     }
+    for (const e of enemies) { if(e.mesh){ scene.remove(e.mesh); e.mesh.traverse(o=>{if(o.geometry)o.geometry.dispose(); if(o.material){ if(Array.isArray(o.material))o.material.forEach(m=>m.dispose()); else o.material.dispose();}}); } }
+    for (const it of items) { if(it.mesh){ scene.remove(it.mesh); it.mesh.traverse(o=>{if(o.geometry)o.geometry.dispose(); if(o.material){ if(Array.isArray(o.material))o.material.forEach(m=>m.dispose()); else o.material.dispose();}}); } }
+    enemies=[]; items=[];
     activeGroups = [];
     colliders = [];
     occluders = [];
@@ -111,6 +147,276 @@ import * as THREE from 'three';
     addCollider(bounds.maxX+t/2,cz,t,d+t*2,0);
   }
 
+
+  // --- Gameplay ---
+  const ITEM_DEFS = [
+    {icon:'🍎', name:'りんご', type:'food', hp:12, stamina:5, genki:3, msg:'HP+12'},
+    {icon:'🍞', name:'パン', type:'food', hp:10, stamina:15, genki:5, msg:'スタミナ+15'},
+    {icon:'🍫', name:'チョコレート', type:'food', hp:5, stamina:8, genki:20, msg:'元気度+20'},
+    {icon:'🥝', name:'キウイ', type:'food', hp:8, stamina:8, genki:8, msg:'バランス回復'},
+    {icon:'🍮', name:'プリン', type:'food', hp:6, stamina:6, genki:15, msg:'元気度+15'},
+    {icon:'🍿', name:'ポップコーン', type:'food', hp:4, stamina:12, genki:6, msg:'スタミナ+12'},
+    {icon:'🎂', name:'ケーキ', type:'food', hp:15, stamina:5, genki:18, msg:'HP/元気回復'},
+    {icon:'🍰', name:'ショートケーキ', type:'food', hp:10, stamina:4, genki:14, msg:'元気度+14'},
+    {icon:'🍧', name:'かき氷', type:'food', hp:6, stamina:10, genki:10, msg:'クール回復'},
+    {icon:'🌭', name:'ホットドッグ', type:'food', hp:14, stamina:12, genki:4, msg:'HP/スタミナ'},
+    {icon:'🧇', name:'ワッフル', type:'food', hp:8, stamina:14, genki:8, msg:'スタミナ+14'},
+    {icon:'🥨', name:'プレッツェル', type:'food', hp:7, stamina:10, genki:5, msg:'スタミナ+10'},
+    {icon:'🍐', name:'洋梨', type:'food', hp:9, stamina:6, genki:6, msg:'HP+9'},
+    {icon:'🍝', name:'パスタ', type:'food', hp:18, stamina:18, genki:6, msg:'HP/スタミナ大'},
+    {icon:'🍱', name:'弁当', type:'food', hp:20, stamina:20, genki:10, msg:'大回復'},
+    {icon:'🍚', name:'ごはん', type:'food', hp:12, stamina:16, genki:6, msg:'スタミナ+16'},
+    {icon:'🥮', name:'月餅', type:'food', hp:10, stamina:8, genki:12, msg:'元気度+12'},
+    {icon:'🍓', name:'いちご', type:'food', hp:7, stamina:5, genki:9, msg:'元気度+9'},
+    {icon:'🍟', name:'ポテト', type:'food', hp:8, stamina:13, genki:5, msg:'スタミナ+13'},
+    {icon:'🍔', name:'バーガー', type:'food', hp:22, stamina:10, genki:5, msg:'HP大回復'},
+    {icon:'🧋', name:'タピオカ', type:'drink', hp:4, stamina:10, genki:14, msg:'元気度+14'},
+    {icon:'☕️', name:'コーヒー', type:'drink', hp:0, stamina:18, genki:10, msg:'スタミナ+18'},
+    {icon:'🫖', name:'お茶', type:'drink', hp:5, stamina:8, genki:12, msg:'落ち着く'},
+    {icon:'🍷', name:'グレープジュース', type:'drink', hp:6, stamina:6, genki:16, msg:'元気度+16'},
+    {icon:'🥤', name:'アイスティー', type:'drink', hp:4, stamina:12, genki:10, msg:'スタミナ+12'},
+    {icon:'🧃', name:'サイダー', type:'drink', hp:3, stamina:14, genki:12, msg:'シュワッと回復'},
+    {icon:'⚡', name:'エナジードリンク', type:'drink', hp:-2, stamina:30, genki:18, msg:'スタミナ特大'},
+  ];
+
+  function calcPlayRadius(count){
+    return Math.max(200, Math.round(180 + count * 5.5));
+  }
+  function clampStat(v,max){ return Math.max(0, Math.min(max,v)); }
+  function updateStatsUI(){
+    const hpPct=100*stats.hp/stats.maxHp, stPct=100*stats.stamina/stats.maxStamina, gkPct=100*stats.genki/stats.maxGenki;
+    barHp.style.width=hpPct+'%'; barStamina.style.width=stPct+'%'; barGenki.style.width=gkPct+'%';
+    valHp.textContent=Math.ceil(stats.hp); valStamina.textContent=Math.ceil(stats.stamina); valGenki.textContent=Math.ceil(stats.genki);
+  }
+  function applyItem(def){
+    const healBonus = selectedChar.healBonus || 1;
+    stats.hp = clampStat(stats.hp + (def.hp||0)*healBonus, stats.maxHp);
+    stats.stamina = clampStat(stats.stamina + (def.stamina||0)*healBonus, stats.maxStamina);
+    stats.genki = clampStat(stats.genki + (def.genki||0)*healBonus, stats.maxGenki);
+    updateStatsUI();
+  }
+
+  function makeBillboard(text, font='28px sans-serif', color='#fff'){
+    const c=document.createElement('canvas'); const ctx=c.getContext('2d');
+    ctx.font=font; const tw=Math.ceil(ctx.measureText(text).width);
+    c.width=tw+16; c.height=44; const g=c.getContext('2d');
+    g.font=font; g.fillStyle='rgba(15,23,42,0.55)'; roundRectCtx(g,1,1,c.width-2,c.height-2,8); g.fill();
+    g.fillStyle=color; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,c.width/2,c.height/2+1);
+    const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearFilter;
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false}));
+    const s=0.03; sp.scale.set(c.width*s,c.height*s,1); sp.renderOrder=10; return sp;
+  }
+
+  function spawnItems(){
+    // clear old
+    for (const it of items){ if(it.mesh) scene.remove(it.mesh); }
+    items=[];
+    const count = Math.max(20, Math.floor(playRadius/12));
+    for(let i=0;i<count;i++){
+      const def = ITEM_DEFS[Math.floor(Math.random()*ITEM_DEFS.length)];
+      const a=Math.random()*Math.PI*2, r=Math.random()* (playRadius-20);
+      const x=Math.cos(a)*r, z=Math.sin(a)*r;
+      if(collides(x,z)) continue;
+      const groupI=new THREE.Group();
+      const sprite=makeBillboard(def.icon, '34px serif', '#fff');
+      sprite.position.y=1.4;
+      groupI.add(sprite);
+      const ring=new THREE.Mesh(new THREE.RingGeometry(0.25,0.35,24), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.5, side:THREE.DoubleSide}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.4; groupI.add(ring);
+      groupI.position.set(x,0.35,z);
+      scene.add(groupI);
+      items.push({def,x,z,mesh:groupI,baseY:0.35,phase:Math.random()*Math.PI*2});
+    }
+  }
+
+  function updateItems(dt){
+    const t=performance.now()*0.001;
+    for(let i=items.length-1;i>=0;i--){
+      const it=items[i];
+      if(!it.mesh) continue;
+      it.mesh.position.y = it.baseY + Math.sin(t*2 + it.phase)*0.08;
+      it.mesh.rotation.y += dt*0.8;
+      const dx=player.x-it.x, dz=player.z-it.z;
+      if(dx*dx+dz*dz < 1.5*1.5){
+        applyItem(it.def);
+        scene.remove(it.mesh); it.mesh.traverse(o=>{if(o.geometry)o.geometry.dispose(); if(o.material){ if(Array.isArray(o.material))o.material.forEach(m=>m.dispose()); else o.material.dispose();}});
+        items.splice(i,1);
+      }
+    }
+  }
+
+  function spawnEnemies(){
+    for (const e of enemies){ if(e.mesh) scene.remove(e.mesh); }
+    enemies=[];
+    const n = Math.max(3, Math.min(99, enemyCount));
+    for(let i=0;i<n;i++){
+      let x=0,z=0,ok=false;
+      for(let tries=0;tries<200;tries++){
+        const a=Math.random()*Math.PI*2, r=30+Math.random()*(playRadius-40);
+        x=Math.cos(a)*r; z=Math.sin(a)*r;
+        if(!collides(x,z) && Math.hypot(x-player.x,z-player.z)>25){ ok=true; break; }
+      }
+      if(!ok) continue;
+      const bodyMat=new THREE.MeshStandardMaterial({color: i%3===0?0xb91c1c : i%3===1?0x9a3412 : 0x7c2d12, roughness:0.7});
+      const mesh=new THREE.Group();
+      const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.35,0.9,4,8), bodyMat);
+      body.position.y=1.0; body.castShadow=true; mesh.add(body);
+      const head=new THREE.Mesh(new THREE.SphereGeometry(0.28,12,12), new THREE.MeshStandardMaterial({color:0xf1c27d, roughness:0.8}));
+      head.position.y=1.75; head.castShadow=true; mesh.add(head);
+      mesh.position.set(x,0.35,z);
+      scene.add(mesh);
+      enemies.push({x,z,y:0.35,mesh,hp:40,maxHp:40,alive:true,speed:1.6+Math.random()*1.2,dir:Math.random()*Math.PI*2,turnT:0,atkCd:Math.random()*1});
+    }
+  }
+
+  function updateEnemies(dt){
+    for(const e of enemies){
+      if(!e.alive || !e.mesh) continue;
+      const dx=player.x-e.x, dz=player.z-e.z;
+      const dist=Math.hypot(dx,dz);
+      e.turnT -= dt;
+      if(dist < 80){
+        e.dir = Math.atan2(dx,dz);
+        const sp=e.speed*(dist>8?1:0.4);
+        const nx=e.x + Math.sin(e.dir)*sp*dt;
+        const nz=e.z + Math.cos(e.dir)*sp*dt;
+        if(!collides(nx,nz)){ e.x=nx; e.z=nz; }
+        else if(!collides(nx,e.z)) e.x=nx;
+        else if(!collides(e.x,nz)) e.z=nz;
+        else e.dir += Math.PI*0.5;
+        if(dist < 2.2){
+          e.atkCd -= dt;
+          if(e.atkCd<=0){ stats.hp = clampStat(stats.hp - 6, stats.maxHp); stats.genki = clampStat(stats.genki-2, stats.maxGenki); e.atkCd=1.0; updateStatsUI(); }
+        }
+      } else {
+        if(e.turnT<=0){ e.dir += (Math.random()-0.5)*1.5; e.turnT=1+Math.random()*2; }
+        const nx=e.x + Math.sin(e.dir)*e.speed*0.4*dt;
+        const nz=e.z + Math.cos(e.dir)*e.speed*0.4*dt;
+        if(!collides(nx,nz)){ e.x=nx; e.z=nz; } else e.dir += Math.PI*0.7;
+      }
+      // keep in radius
+      const d0=Math.hypot(e.x,e.z);
+      if(d0>playRadius-5){ e.x*= (playRadius-5)/d0; e.z*= (playRadius-5)/d0; }
+      e.mesh.position.set(e.x,0.35,e.z);
+      e.mesh.rotation.y = e.dir;
+    }
+  }
+
+  function damageEnemy(e, dmg){
+    if(!e.alive) return;
+    e.hp -= dmg;
+    if(e.hp<=0){
+      e.alive=false; e.hp=0;
+      if(e.mesh){ scene.remove(e.mesh); e.mesh.traverse(o=>{if(o.geometry)o.geometry.dispose(); if(o.material){ if(Array.isArray(o.material))o.material.forEach(m=>m.dispose()); else o.material.dispose();}}); e.mesh=null; }
+    }
+  }
+
+  function shootAtEnemies(){
+    if(shootCooldownPlayer>0) return;
+    shootCooldownPlayer=0.22;
+    // muzzle/tracer handled in doShoot visual; here apply damage
+    const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
+    const origin=camera.position.clone();
+    let best=null, bestT=999;
+    for(const e of enemies){
+      if(!e.alive) continue;
+      // ray-sphere-ish test against body
+      const cx=e.x, cy=1.2+0.35, cz=e.z, r=0.8;
+      const ox=origin.x-cx, oy=origin.y-cy, oz=origin.z-cz;
+      const b=ox*dir.x+oy*dir.y+oz*dir.z;
+      const c=b*b-(ox*ox+oy*oy+oz*oz-r*r);
+      if(c<0) continue;
+      const t=-b-Math.sqrt(c);
+      if(t>0 && t<bestT){ bestT=t; best=e; }
+    }
+    if(best && bestT<120){ damageEnemy(best, 25); }
+  }
+
+  function updateHPTags(){
+    const w=container.clientWidth, h=container.clientHeight;
+    hpTagsEl.innerHTML='';
+    const cam=camToScreen;
+    function camToScreen(x,y,z){
+      const v=new THREE.Vector3(x,y,z); v.project(camera);
+      if(v.z>1) return null;
+      return {x:(v.x*0.5+0.5)*w, y:(-v.y*0.5+0.5)*h};
+    }
+    // player
+    const ps=camToScreen(player.x, player.y+0.9, player.z);
+    if(ps){
+      const d=document.createElement('div'); d.className='hp-tag'; d.style.left=ps.x+'px'; d.style.top=ps.y+'px';
+      d.innerHTML=`<div class="name">YOU</div><div class="bar"><i style="width:${100*stats.hp/stats.maxHp}%"></i></div>`;
+      hpTagsEl.appendChild(d);
+    }
+    for(const e of enemies){
+      if(!e.alive) continue;
+      const dx=e.x-player.x, dz=e.z-player.z; if(dx*dx+dz*dz>80*80) continue;
+      const s=camToScreen(e.x, 2.7, e.z); if(!s) continue;
+      const d=document.createElement('div'); d.className='hp-tag enemy'; d.style.left=s.x+'px'; d.style.top=s.y+'px';
+      d.innerHTML=`<div class="name">CPU</div><div class="bar"><i style="width:${100*e.hp/e.maxHp}%"></i></div>`;
+      hpTagsEl.appendChild(d);
+    }
+  }
+
+  function drawBigMap(){
+    const c=bigmapCanvas, ctx=bigmapCtx; const w=c.width,h=c.height;
+    ctx.clearRect(0,0,w,h); ctx.fillStyle='rgba(10,16,28,0.7)'; ctx.fillRect(0,0,w,h);
+    const bounds={minX:-playRadius,maxX:playRadius,minZ:-playRadius,maxZ:playRadius};
+    const pad=20, bw=bounds.maxX-bounds.minX, bd=bounds.maxZ-bounds.minZ;
+    const scale=Math.min((w-pad*2)/bw,(h-pad*2)/bd);
+    const ox=(w-bw*scale)/2 - bounds.minX*scale; const oy=(h-bd*scale)/2 - bounds.minZ*scale;
+    const tx=x=>x*scale+ox, ty=z=>z*scale+oy;
+    // buildings
+    if(stageData.shinjuku){
+      ctx.fillStyle='rgba(148,163,184,0.35)';
+      for(const b of stageData.shinjuku.buildings){
+        const ring=b.f&&b.f[0]; if(!ring||ring.length<3) continue;
+        // quick bounds reject
+        let minx=1e9,maxx=-1e9,minz=1e9,maxz=-1e9; for(const p of ring){ if(p[0]<minx)minx=p[0]; if(p[0]>maxx)maxx=p[0]; if(p[1]<minz)minz=p[1]; if(p[1]>maxz)maxz=p[1]; }
+        if(maxx<bounds.minX||minx>bounds.maxX||maxz<bounds.minZ||minz>bounds.maxZ) continue;
+        ctx.beginPath(); ctx.moveTo(tx(ring[0][0]),ty(ring[0][1]));
+        for(let i=1;i<ring.length;i++) ctx.lineTo(tx(ring[i][0]),ty(ring[i][1]));
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    // items
+    ctx.font='14px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    for(const it of items){ ctx.fillText(it.def.icon, tx(it.x), ty(it.z)); }
+    // enemies
+    for(const e of enemies){ if(!e.alive) continue; ctx.fillStyle='#fb7185'; ctx.beginPath(); ctx.arc(tx(e.x),ty(e.z),4,0,Math.PI*2); ctx.fill(); }
+    // player
+    const px=tx(player.x), py=ty(player.z);
+    const a=Math.atan2(Math.cos(player.yaw), Math.sin(player.yaw));
+    ctx.fillStyle='#60a5fa'; ctx.beginPath(); ctx.arc(px,py,6,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+Math.cos(a)*14,py+Math.sin(a)*14); ctx.stroke();
+  }
+
+  function initCharacterSelect(){
+    charOptions.innerHTML='';
+    CHARACTERS.forEach((c,idx)=>{
+      const btn=document.createElement('button'); btn.type='button'; btn.className='char-opt'+(idx===0?' selected':'');
+      btn.innerHTML=`<span class="icon">${c.icon}</span><span class="nm">${c.name}</span><span class="desc">${c.desc}</span>`;
+      btn.addEventListener('click',()=>{
+        selectedChar=c; charOptions.querySelectorAll('.char-opt').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected');
+      });
+      charOptions.appendChild(btn);
+    });
+    enemyCountVal.textContent=String(enemyCountInput.value);
+    enemyCountInput.addEventListener('input',()=>{ enemyCountVal.textContent=String(enemyCountInput.value); });
+  }
+
+  function startGame(){
+    enemyCount = Math.max(3, Math.min(99, parseInt(enemyCountInput.value||'20',10)));
+    playRadius = calcPlayRadius(enemyCount);
+    stats.maxHp=selectedChar.hp; stats.hp=selectedChar.hp;
+    stats.maxStamina=selectedChar.stamina; stats.stamina=selectedChar.stamina;
+    stats.maxGenki=selectedChar.genki; stats.genki=selectedChar.genki;
+    updateStatsUI();
+    charSelect.classList.add('hidden');
+    gameStarted=true;
+    spawnEnemies();
+    spawnItems();
+  }
   // --- Build from plateau processed data ---
   function buildPlateauStage(data) {
     clearStageObjects();
@@ -121,7 +427,7 @@ import * as THREE from 'three';
     // ground
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(2400,2400),
-      new THREE.MeshStandardMaterial({color:0x3a4555, roughness:1})
+      new THREE.MeshStandardMaterial({color:0x3a4555, roughness:1, transparent:true, opacity:0.72})
     );
     ground.rotation.x = -Math.PI/2; ground.position.y = 0.35; ground.receiveShadow = true;
     group.add(ground);
@@ -234,6 +540,137 @@ import * as THREE from 'three';
       mesh.userData.box = {minX,maxX,minZ,maxZ,maxY};
       group.add(mesh);
       occluders.push(mesh);
+    }
+
+    // --- Integrated underground/station/bridges ---
+    const indoorMat = new THREE.MeshStandardMaterial({color:0xd8d4cc, roughness:0.7, metalness:0.05});
+    const indoorWallMat = new THREE.MeshStandardMaterial({color:0xe8e4dc, roughness:0.8, metalness:0.02, side:THREE.DoubleSide});
+    const tileMat = new THREE.MeshStandardMaterial({color:0xcfd8d3, roughness:0.55, metalness:0.08});
+    const ugMat = new THREE.MeshStandardMaterial({color:0xdde3de, roughness:0.6, metalness:0.05});
+    const bridgeMat = new THREE.MeshStandardMaterial({color:0x9aa3ad, roughness:0.75, metalness:0.1});
+
+    function addIndoorLights(pts, color, intensity, dist, cap){
+      let n=0;
+      for(let i=0;i<pts.length && n<cap;i++){
+        const p=pts[i];
+        const pl=new THREE.PointLight(color, intensity, dist, 2);
+        pl.position.set(p.x, p.y, p.z);
+        group.add(pl); n++;
+      }
+    }
+
+    // Underground mall rooms
+    if (Array.isArray(data.underground)) {
+      const geoms=[];
+      const lightPts=[];
+      for (const r of data.underground) {
+        const rings=r.f; if(!rings||!rings.length) continue;
+        const outer=rings[0]; if(outer.length<3) continue;
+        const shape=new THREE.Shape();
+        shape.moveTo(outer[0][0], -outer[0][1]);
+        for(let i=1;i<outer.length;i++) shape.lineTo(outer[i][0], -outer[i][1]);
+        for(let h=1;h<rings.length;h++){
+          const holePts=rings[h]; if(holePts.length<3) continue;
+          const hole=new THREE.Path(); hole.moveTo(holePts[0][0], -holePts[0][1]);
+          for(let i=1;i<holePts.length;i++) hole.lineTo(holePts[i][0], -holePts[i][1]);
+          shape.holes.push(hole);
+        }
+        const hgt=Math.max(2.5, r.h||3);
+        const baseY=(r.z0||32.6) - 35.0 + 0.35;
+        const geo=new THREE.ExtrudeGeometry(shape,{depth:hgt, bevelEnabled:false});
+        geo.rotateX(-Math.PI/2);
+        geo.translate(0, baseY, 0);
+        geoms.push(geo);
+        let sx=0,sz=0; for(const p of outer){sx+=p[0]; sz+=p[1];}
+        lightPts.push({x:sx/outer.length, y:baseY+hgt-0.3, z:sz/outer.length});
+      }
+      if(geoms.length){
+        const merged=mergeGeometries(geoms); geoms.forEach(g=>g.dispose());
+        if(merged){ merged.computeBoundingSphere(); const m=new THREE.Mesh(merged, ugMat); m.frustumCulled=false; m.receiveShadow=true; group.add(m); }
+      }
+      // sparse lights
+      const step=Math.max(1, Math.floor(lightPts.length/25));
+      addIndoorLights(lightPts.filter((_,i)=>i%step===0), 0xfff2d6, 1.1, 18, 25);
+    }
+
+    // Station indoor floors
+    if (Array.isArray(data.indoor)) {
+      const byLevel=new Map();
+      for (const r of data.indoor) {
+        const zl=r.zl||0;
+        if(!byLevel.has(zl)) byLevel.set(zl,[]);
+        byLevel.get(zl).push(r);
+      }
+      const lightPts=[];
+      for (const [zl, items] of byLevel) {
+        const geoms=[];
+        const baseY = 0.36 + zl * 4.0;
+        for (const r of items) {
+          const rings=r.f; if(!rings||!rings.length) continue;
+          const outer=rings[0]; if(outer.length<3) continue;
+          const shape=new THREE.Shape();
+          shape.moveTo(outer[0][0], -outer[0][1]);
+          for(let i=1;i<outer.length;i++) shape.lineTo(outer[i][0], -outer[i][1]);
+          for(let h=1;h<rings.length;h++){
+            const holePts=rings[h]; if(holePts.length<3) continue;
+            const hole=new THREE.Path(); hole.moveTo(holePts[0][0], -holePts[0][1]);
+            for(let i=1;i<holePts.length;i++) hole.lineTo(holePts[i][0], -holePts[i][1]);
+            shape.holes.push(hole);
+          }
+          const geo=new THREE.ExtrudeGeometry(shape,{depth:0.25, bevelEnabled:false});
+          geo.rotateX(-Math.PI/2);
+          geo.translate(0, baseY, 0);
+          geoms.push(geo);
+          if(geoms.length % 12 === 0){
+            let sx=0,sz=0; for(const p of outer){sx+=p[0]; sz+=p[1];}
+            lightPts.push({x:sx/outer.length, y:baseY+3.2, z:sz/outer.length});
+          }
+        }
+        if(!geoms.length) continue;
+        const merged=mergeGeometries(geoms); geoms.forEach(g=>g.dispose());
+        if(merged){ merged.computeBoundingSphere(); const m=new THREE.Mesh(merged, tileMat.clone()); m.frustumCulled=false; m.receiveShadow=true; group.add(m); }
+      }
+      const step=Math.max(1, Math.floor(lightPts.length/35));
+      addIndoorLights(lightPts.filter((_,i)=>i%step===0), 0xf7f3e8, 1.0, 16, 35);
+    }
+
+    // Bridges
+    if (Array.isArray(data.bridges)) {
+      const geoms=[];
+      for (const r of data.bridges) {
+        const rings=r.f; if(!rings||!rings.length) continue;
+        const outer=rings[0]; if(outer.length<3) continue;
+        const shape=new THREE.Shape();
+        shape.moveTo(outer[0][0], -outer[0][1]);
+        for(let i=1;i<outer.length;i++) shape.lineTo(outer[i][0], -outer[i][1]);
+        const baseY=(r.z0||33.0)-35.0+0.35;
+        const topY=(r.z1||40.0)-35.0+0.35;
+        const hgt=Math.max(0.5, topY-baseY);
+        const geo=new THREE.ExtrudeGeometry(shape,{depth:hgt, bevelEnabled:false});
+        geo.rotateX(-Math.PI/2);
+        geo.translate(0, baseY, 0);
+        geoms.push(geo);
+      }
+      if(geoms.length){
+        const merged=mergeGeometries(geoms); geoms.forEach(g=>g.dispose());
+        if(merged){ merged.computeBoundingSphere(); const m=new THREE.Mesh(merged, bridgeMat); m.frustumCulled=false; m.receiveShadow=true; group.add(m); }
+      }
+    }
+
+    // Station entity labels (sparse)
+    if (Array.isArray(data.stationEntities)) {
+      let shown=0;
+      for (const e of data.stationEntities) {
+        if(!e.n) continue;
+        const fa=e.fa||'';
+        const important = /改札|出口|ホーム|階段|エレベータ|トイレ|案内/.test(fa+e.n);
+        if(!important) continue;
+        const baseY = 0.36 + (e.zl||0)*4.0;
+        const label=makeLabel(e.n, '#dbeafe');
+        label.position.set(e.x, baseY+2.5, e.z);
+        group.add(label);
+        shown++; if(shown>80) break;
+      }
     }
 
     // POIs / labels
@@ -440,8 +877,8 @@ import * as THREE from 'three';
     if(player.grounded){ player.vy = 7.5; player.grounded = false; }
   }
   function doShoot(){
-    if(shootCooldown > 0) return;
-    shootCooldown = 0.18;
+    if(shootCooldownPlayer > 0) return;
+    shootCooldownPlayer = 0.22;
     // muzzle flash
     const flash = new THREE.PointLight(0xfff2a8, 8, 8);
     const muzzle = new THREE.Vector3(0.28,-0.22,-1.2).applyMatrix4(camera.matrixWorld);
@@ -459,6 +896,7 @@ import * as THREE from 'three';
     setTimeout(()=>{ scene.remove(line); geo.dispose(); mat.dispose(); }, 80);
     // small recoil
     player.pitch += 0.01;
+    shootAtEnemies();
   }
   jumpBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); doJump(); });
   shootBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); doShoot(); });
@@ -568,7 +1006,7 @@ import * as THREE from 'three';
     const dt=Math.min((ts-lastTime)/1000,0.05); lastTime=ts;
     let ix=0,iy=0;
     if(keys.has('up')) iy+=1; if(keys.has('down')) iy-=1; if(keys.has('left')) ix-=1; if(keys.has('right')) ix+=1;
-    if(moveJoy.active){ ix+=moveJoy.x; iy-=moveJoy.y; }
+    if(moveJoy.active){ ix+=moveJoy.x; iy+=moveJoy.y; }
     // look stick
     if(lookJoy.active){
       player.yaw -= lookJoy.x * 2.2 * dt;
@@ -591,7 +1029,7 @@ import * as THREE from 'three';
       bobPhase+=dt*8;
     } else { bobPhase*=0.9; }
     // jump physics
-    shootCooldown = Math.max(0, shootCooldown - dt);
+    shootCooldownPlayer = Math.max(0, shootCooldownPlayer - dt);
     if(!player.grounded || player.vy > 0){
       player.vy -= 18 * dt;
       player.y += player.vy * dt;
@@ -601,6 +1039,25 @@ import * as THREE from 'three';
     } else {
       player.y = 2.05;
     }
+
+    // gameplay updates
+    if(gameStarted){
+      const movingNow = moving;
+      if(movingNow) stats.stamina = clampStat(stats.stamina - 4*dt, stats.maxStamina);
+      else stats.stamina = clampStat(stats.stamina + 6*dt*(selectedChar.staminaRegen||1), stats.maxStamina);
+      if(stats.stamina < 15) stats.genki = clampStat(stats.genki - 1.5*dt, stats.maxGenki);
+      else stats.genki = clampStat(stats.genki + 0.8*dt, stats.maxGenki);
+      if(stats.genki <= 0) stats.hp = clampStat(stats.hp - 2*dt, stats.maxHp);
+      // clamp to play radius
+      const dpr=Math.hypot(player.x,player.z);
+      if(dpr>playRadius-2){ const s=(playRadius-2)/dpr; player.x*=s; player.z*=s; }
+      updateItems(dt);
+      updateEnemies(dt);
+      updateHPTags();
+      if(!bigmap.classList.contains('hidden') && (Math.floor(ts/200)%2===0)) drawBigMap();
+      updateStatsUI();
+    }
+
     const bob=Math.sin(bobPhase)*(moving && player.grounded ? 0.035:0);
     camera.position.set(player.x, player.y+bob, player.z);
     camera.rotation.order='YXZ'; camera.rotation.y=player.yaw; camera.rotation.x=player.pitch;
@@ -623,13 +1080,18 @@ import * as THREE from 'three';
     lastTouchEnd = now;
   }, {passive:false});
 
-  buildGun(); buildStageUI(); resize(); requestAnimationFrame(animate);
+  buildGun(); buildStageUI(); resize(); initCharacterSelect(); updateStatsUI();
+  mapToggle.addEventListener('click',()=>{ bigmap.classList.toggle('hidden'); if(!bigmap.classList.contains('hidden')) drawBigMap(); });
+  bigmapClose.addEventListener('click',()=>bigmap.classList.add('hidden'));
+  startGameBtn.addEventListener('click',()=>{ if(stageData.shinjuku){ startGame(); } else { startGameBtn.textContent='読込中...'; startGameBtn.disabled=true; window.__pendingStart=true; } });
+  requestAnimationFrame(animate);
   minimapLabel.textContent = '新宿データ読込中...';
   fetch('./data/shinjuku_plateau.json')
     .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
     .then(data=>{
       stageData.shinjuku=data;
       switchStage('shinjuku');
+      if(window.__pendingStart){ startGame(); }
     })
     .catch(err=>{
       console.error('Failed to load plateau data', err);

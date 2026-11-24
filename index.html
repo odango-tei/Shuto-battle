@@ -17,6 +17,14 @@
   <div id="game-container" aria-label="首都戦記3D"></div>
 
   <div class="overlay-ui">
+    <div id="status-panel" class="status-panel">
+      <div class="stat-row"><span class="stat-label">HP</span><div class="stat-bar"><div id="bar-hp" class="stat-fill hp"></div></div><span id="val-hp" class="stat-val">100</span></div>
+      <div class="stat-row"><span class="stat-label">スタミナ</span><div class="stat-bar"><div id="bar-stamina" class="stat-fill stamina"></div></div><span id="val-stamina" class="stat-val">100</span></div>
+      <div class="stat-row"><span class="stat-label">元気度</span><div class="stat-bar"><div id="bar-genki" class="stat-fill genki"></div></div><span id="val-genki" class="stat-val">100</span></div>
+    </div>
+
+    <button id="map-toggle" class="map-toggle" type="button">2D地図</button>
+
     <div id="joystick-move" class="joystick joystick-left" aria-label="移動スティック">
       <div class="joystick-base">
         <div id="joystick-move-knob" class="joystick-knob"></div>
@@ -37,6 +45,26 @@
     <div class="minimap-wrap">
       <div class="minimap-label" id="minimap-label">-</div>
       <canvas id="minimap" width="220" height="220"></canvas>
+    </div>
+
+    <div id="bigmap" class="bigmap hidden">
+      <div class="bigmap-head"><span>2D地図</span><button id="bigmap-close" type="button">閉じる</button></div>
+      <canvas id="bigmap-canvas" width="520" height="520"></canvas>
+    </div>
+
+    <div id="hp-tags" class="hp-tags"></div>
+  </div>
+
+  <div id="char-select" class="char-select">
+    <div class="char-card">
+      <h2>キャラ選択</h2>
+      <p class="char-sub">プレイするキャラクターを選んでください</p>
+      <div id="char-options" class="char-options"></div>
+      <label class="enemy-count-label">敵CPU数: <span id="enemy-count-val">20</span>体
+        <input id="enemy-count" type="range" min="3" max="99" value="20">
+      </label>
+      <p class="char-note">面積は敵数に合わせて変化（最低半径200m）</p>
+      <button id="start-game" class="start-btn" type="button">開始</button>
     </div>
   </div>
 

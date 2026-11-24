@@ -42,8 +42,8 @@ import * as THREE from 'three';
 
   // --- Renderer / Scene / Camera ---
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xbfdcf0);
-  scene.fog = new THREE.Fog(0xbfdcf0, 350, 1600);
+  scene.background = new THREE.Color(0xaab9c8);
+  scene.fog = new THREE.Fog(0xaab9c8, 120, 850);
 
   const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 2500);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -450,6 +450,7 @@ import * as THREE from 'three';
     stats.maxGenki=selectedChar.genki; stats.genki=selectedChar.genki;
     updateStatsUI();
     shootBtn.textContent = selectedChar.weapon === 'fart' ? 'オナラ爆弾' : '撃つ';
+    updateWeaponModel();
     charSelect.classList.add('hidden');
     gameStarted=true;
     spawnEnemies();
@@ -570,14 +571,23 @@ import * as THREE from 'three';
       }
       if(!geoms.length) continue;
       const merged = mergeGeometries(geoms);
-      geoms.forEach(g=>g.dispose());
-      if(!merged) continue;
-      const mat = bldMat.clone();
-      const mesh = new THREE.Mesh(merged, mat);
-      mesh.castShadow = true; mesh.receiveShadow = true;
-      mesh.userData.box = {minX,maxX,minZ,maxZ,maxY};
-      group.add(mesh);
-      occluders.push(mesh);
+      if(merged){
+        geoms.forEach(g=>g.dispose());
+        const mat = bldMat.clone();
+        const mesh = new THREE.Mesh(merged, mat);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        mesh.userData.box = {minX,maxX,minZ,maxZ,maxY};
+        group.add(mesh);
+        occluders.push(mesh);
+      } else {
+        // fallback: add individually to avoid invisible walls
+        for(const g of geoms){
+          const m=new THREE.Mesh(g, bldMat.clone());
+          m.castShadow=true; m.receiveShadow=true;
+          m.userData.box={minX,maxX,minZ,maxZ,maxY};
+          group.add(m); occluders.push(m);
+        }
+      }
     }
 
     // --- Integrated underground/station/bridges ---
@@ -783,17 +793,39 @@ import * as THREE from 'three';
 
   // --- Gun ---
   const gunGroup = new THREE.Group();
+  let gunModel=null, fartModel=null;
   function buildGun(){
+    gunGroup.clear();
+    gunModel = new THREE.Group();
     const dark=new THREE.MeshStandardMaterial({color:0x2a2f38,roughness:0.4,metalness:0.6});
     const darker=new THREE.MeshStandardMaterial({color:0x1a1d22,roughness:0.5,metalness:0.5});
-    const body=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.16,0.55),dark); body.position.set(0,-0.02,-0.2); gunGroup.add(body);
-    const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.03,0.45,10),darker); barrel.rotation.x=Math.PI/2; barrel.position.set(0,0.03,-0.62); gunGroup.add(barrel);
-    const grip=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.18,0.12),darker); grip.position.set(0,-0.14,-0.05); grip.rotation.x=0.25; gunGroup.add(grip);
-    const mag=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.16,0.09),darker); mag.position.set(0,-0.22,-0.22); mag.rotation.x=0.15; gunGroup.add(mag);
-    const sight=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.03,0.02),new THREE.MeshStandardMaterial({color:0xff4444,emissive:0x441111})); sight.position.set(0,0.08,-0.35); gunGroup.add(sight);
-    const arm=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.11,0.5),new THREE.MeshStandardMaterial({color:0x2d3a4d,roughness:0.8})); arm.position.set(0.02,-0.14,0.18); arm.rotation.x=0.15; gunGroup.add(arm);
+    const body=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.16,0.55),dark); body.position.set(0,-0.02,-0.2); gunModel.add(body);
+    const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.03,0.45,10),darker); barrel.rotation.x=Math.PI/2; barrel.position.set(0,0.03,-0.62); gunModel.add(barrel);
+    const grip=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.18,0.12),darker); grip.position.set(0,-0.14,-0.05); grip.rotation.x=0.25; gunModel.add(grip);
+    const mag=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.16,0.09),darker); mag.position.set(0,-0.22,-0.22); mag.rotation.x=0.15; gunModel.add(mag);
+    const sight=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.03,0.02),new THREE.MeshStandardMaterial({color:0xff4444,emissive:0x441111})); sight.position.set(0,0.08,-0.35); gunModel.add(sight);
+    const armG=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.11,0.5),new THREE.MeshStandardMaterial({color:0x2d3a4d,roughness:0.8})); armG.position.set(0.02,-0.14,0.18); armG.rotation.x=0.15; gunModel.add(armG);
+    gunGroup.add(gunModel);
+
+    fartModel = new THREE.Group();
+    const armF=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.11,0.45),new THREE.MeshStandardMaterial({color:0x4d7c0f,roughness:0.8}));
+    armF.position.set(0.02,-0.14,0.16); armF.rotation.x=0.2; fartModel.add(armF);
+    const bomb=new THREE.Mesh(new THREE.SphereGeometry(0.11,16,16), new THREE.MeshStandardMaterial({color:0x65a30d, emissive:0x365314, emissiveIntensity:0.4, roughness:0.5}));
+    bomb.position.set(0,-0.02,-0.18); fartModel.add(bomb);
+    const fuse=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.08,8), new THREE.MeshStandardMaterial({color:0x78350f}));
+    fuse.position.set(0,0.1,-0.18); fartModel.add(fuse);
+    const spark=new THREE.Mesh(new THREE.SphereGeometry(0.025,8,8), new THREE.MeshBasicMaterial({color:0xfbbf24}));
+    spark.position.set(0,0.15,-0.18); fartModel.add(spark);
+    fartModel.visible=false;
+    gunGroup.add(fartModel);
+
     gunGroup.position.set(0.28,-0.28,-0.55);
     camera.add(gunGroup); scene.add(camera);
+  }
+  function updateWeaponModel(){
+    const isFart = selectedChar && selectedChar.weapon === 'fart';
+    if(gunModel) gunModel.visible = !isFart;
+    if(fartModel) fartModel.visible = isFart;
   }
 
   // --- Stages ---
@@ -1080,7 +1112,7 @@ import * as THREE from 'three';
     const dt=Math.min((ts-lastTime)/1000,0.05); lastTime=ts;
     let ix=0,iy=0;
     if(keys.has('up')) iy+=1; if(keys.has('down')) iy-=1; if(keys.has('left')) ix-=1; if(keys.has('right')) ix+=1;
-    if(moveJoy.active){ ix+=moveJoy.x; iy+=moveJoy.y; }
+    if(moveJoy.active){ ix+=moveJoy.x; iy-=moveJoy.y; }
     // look stick
     if(lookJoy.active){
       player.yaw -= lookJoy.x * 2.2 * dt;
@@ -1095,7 +1127,7 @@ import * as THREE from 'three';
     const moving=Math.hypot(ix,iy)>0.06;
     if(moving){
       const len=Math.hypot(ix,iy); if(len>1){ix/=len;iy/=len;}
-      const speed=6.0;
+      const speed=7.2;
       const fx=Math.sin(player.yaw), fz=Math.cos(player.yaw);
       const rx=Math.cos(player.yaw), rz=-Math.sin(player.yaw);
       const mx=fx*iy+rx*ix, mz=fz*iy+rz*ix; const ml=Math.hypot(mx,mz)||1;
@@ -1117,8 +1149,8 @@ import * as THREE from 'three';
     // gameplay updates
     if(gameStarted){
       const movingNow = moving;
-      if(movingNow) stats.stamina = clampStat(stats.stamina - 4*dt, stats.maxStamina);
-      else stats.stamina = clampStat(stats.stamina + 6*dt*(selectedChar.staminaRegen||1), stats.maxStamina);
+      if(movingNow) stats.stamina = clampStat(stats.stamina - 2.8*dt, stats.maxStamina);
+      else stats.stamina = clampStat(stats.stamina + 7*dt*(selectedChar.staminaRegen||1), stats.maxStamina);
       if(stats.stamina < 15) stats.genki = clampStat(stats.genki - 1.5*dt, stats.maxGenki);
       else stats.genki = clampStat(stats.genki + 0.8*dt, stats.maxGenki);
       if(stats.genki <= 0) stats.hp = clampStat(stats.hp - 2*dt, stats.maxHp);

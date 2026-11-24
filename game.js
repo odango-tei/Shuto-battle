@@ -641,6 +641,38 @@ import * as THREE from 'three';
     updateWeaponModel();
     charSelect.classList.add('hidden');
     gameStarted=true;
+    // Visible play-area boundary wall
+    {
+      const wallGroup = new THREE.Group();
+      const wallGeo = new THREE.CylinderGeometry(playRadius, playRadius, 26, 72, 1, true);
+      const wallMat = new THREE.MeshStandardMaterial({
+        color: 0xff3b30,
+        emissive: 0xdc2626,
+        emissiveIntensity: 0.75,
+        transparent: true,
+        opacity: 0.26,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const wallMesh = new THREE.Mesh(wallGeo, wallMat);
+      wallMesh.position.y = 13;
+      wallGroup.add(wallMesh);
+
+      const curbGeo = new THREE.RingGeometry(Math.max(1, playRadius - 1.2), playRadius + 0.4, 72);
+      const curbMat = new THREE.MeshBasicMaterial({
+        color: 0xff453a,
+        transparent: true,
+        opacity: 0.75,
+        side: THREE.DoubleSide
+      });
+      const curbMesh = new THREE.Mesh(curbGeo, curbMat);
+      curbMesh.rotation.x = -Math.PI / 2;
+      curbMesh.position.y = 0.25;
+      wallGroup.add(curbMesh);
+
+      scene.add(wallGroup);
+      activeGroups.push(wallGroup);
+    }
     spawnEnemies();
     spawnItems();
   }
@@ -755,7 +787,7 @@ import * as THREE from 'three';
         // collider (AABB of footprint)
         let bx1=Infinity,bx2=-Infinity,bz1=Infinity,bz2=-Infinity;
         for(const p of outer){ if(p[0]<bx1)bx1=p[0]; if(p[0]>bx2)bx2=p[0]; if(p[1]<bz1)bz1=p[1]; if(p[1]>bz2)bz2=p[1]; }
-        addCollider((bx1+bx2)/2,(bz1+bz2)/2,Math.max(1,bx2-bx1),Math.max(1,bz2-bz1),-0.15);
+        addCollider((bx1+bx2)/2,(bz1+bz2)/2,Math.max(1,bx2-bx1),Math.max(1,bz2-bz1),-0.35);
       }
       if(!geoms.length) continue;
       const merged = mergeGeometries(geoms);
@@ -1205,7 +1237,7 @@ import * as THREE from 'three';
   window.addEventListener('keydown', e=>{ if(e.code==='Space'){ e.preventDefault(); doJump(); } });
 
   // --- Collision ---
-  const playerRadius=0.45;
+  const playerRadius=0.32;
   function collides(x,z){ for(const c of colliders){ if(x+playerRadius>c.minX && x-playerRadius<c.maxX && z+playerRadius>c.minZ && z-playerRadius<c.maxZ) return true; } return false; }
   function tryMove(nx,nz){
     // If already stuck inside a collider, allow movement out
@@ -1355,7 +1387,7 @@ import * as THREE from 'three';
     // gameplay updates
     if(gameStarted){
       const movingNow = moving;
-      if(movingNow) stats.stamina = clampStat(stats.stamina - 2.8*dt, stats.maxStamina);
+      if(movingNow) stats.stamina = clampStat(stats.stamina - 0.9*dt, stats.maxStamina);
       else stats.stamina = clampStat(stats.stamina + 7*dt*(selectedChar.staminaRegen||1), stats.maxStamina);
       if(stats.stamina < 15) stats.genki = clampStat(stats.genki - 1.5*dt, stats.maxGenki);
       else stats.genki = clampStat(stats.genki + 0.8*dt, stats.maxGenki);

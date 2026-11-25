@@ -1052,10 +1052,10 @@ import * as THREE from 'three';
     const armK=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.11,0.45),new THREE.MeshStandardMaterial({color:0x4d7c0f,roughness:0.8}));
     armK.position.set(0.02,-0.14,0.16); armK.rotation.x=0.2; katanaModel.add(armK);
     const tLoader = new THREE.TextureLoader();
-    const kBase = tLoader.load('./assets/katana/katana_base.jpg');
-    const kMetal = tLoader.load('./assets/katana/katana_metallic.png');
-    const kRough = tLoader.load('./assets/katana/katana_roughness.png');
-    const kEmissive = tLoader.load('./assets/katana/katana_emissive.png');
+    const kBase = tLoader.load('./assets/katana/Sting_Base_Color.png');
+    const kMetal = tLoader.load('./assets/katana/Sting_Metallic.png');
+    const kRough = tLoader.load('./assets/katana/Sting_Roughness.png');
+    const kEmissive = tLoader.load('./assets/katana/Sting_Emissive.png');
     const bladeMat = new THREE.MeshStandardMaterial({
       map: kBase, metalnessMap: kMetal, roughnessMap: kRough,
       emissiveMap: kEmissive, emissive: new THREE.Color(0x60a5fa), emissiveIntensity: 0.7,

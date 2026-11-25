@@ -82,7 +82,7 @@ import * as THREE from 'three';
   // gameplay
   const CHARACTERS = [
     {id:'basque', name:'バスク', icon:'🔫', weapon:'gun', desc:'銃で正確に遠距離攻撃', hp:110, stamina:100, genki:100, speed:1.0, staminaRegen:1.0},
-    {id:'aaaa', name:'ああああ', icon:'💨', weapon:'fart', desc:'オナラ爆弾で周囲に範囲ダメージ', hp:120, stamina:110, genki:120, speed:1.05, staminaRegen:1.1},
+    {id:'aaaa', name:'ああああ', icon:'⚔️', weapon:'katana', desc:'刀で前方を斬り裂く近接連撃', hp:120, stamina:110, genki:120, speed:1.05, staminaRegen:1.1},
   ];
   let selectedChar = CHARACTERS[0];
   let gameStarted = false;
@@ -649,7 +649,7 @@ import * as THREE from 'three';
     stats.maxStamina=selectedChar.stamina; stats.stamina=selectedChar.stamina;
     stats.maxGenki=selectedChar.genki; stats.genki=selectedChar.genki;
     updateStatsUI();
-    shootBtn.textContent = selectedChar.weapon === 'fart' ? 'オナラ爆弾' : '撃つ';
+    shootBtn.textContent = selectedChar.weapon === 'katana' ? '斬る' : '撃つ';
     updateWeaponModel();
     charSelect.classList.add('hidden');
     gameStarted=true;
@@ -1034,7 +1034,7 @@ import * as THREE from 'three';
 
   // --- Gun ---
   const gunGroup = new THREE.Group();
-  let gunModel=null, fartModel=null;
+  let gunModel=null, katanaModel=null;
   function buildGun(){
     gunGroup.clear();
     gunModel = new THREE.Group();
@@ -1048,25 +1048,35 @@ import * as THREE from 'three';
     const armG=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.11,0.5),new THREE.MeshStandardMaterial({color:0x2d3a4d,roughness:0.8})); armG.position.set(0.02,-0.14,0.18); armG.rotation.x=0.15; gunModel.add(armG);
     gunGroup.add(gunModel);
 
-    fartModel = new THREE.Group();
-    const armF=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.11,0.45),new THREE.MeshStandardMaterial({color:0x4d7c0f,roughness:0.8}));
-    armF.position.set(0.02,-0.14,0.16); armF.rotation.x=0.2; fartModel.add(armF);
-    const bomb=new THREE.Mesh(new THREE.SphereGeometry(0.11,16,16), new THREE.MeshStandardMaterial({color:0x65a30d, emissive:0x365314, emissiveIntensity:0.4, roughness:0.5}));
-    bomb.position.set(0,-0.02,-0.18); fartModel.add(bomb);
-    const fuse=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.08,8), new THREE.MeshStandardMaterial({color:0x78350f}));
-    fuse.position.set(0,0.1,-0.18); fartModel.add(fuse);
-    const spark=new THREE.Mesh(new THREE.SphereGeometry(0.025,8,8), new THREE.MeshBasicMaterial({color:0xfbbf24}));
-    spark.position.set(0,0.15,-0.18); fartModel.add(spark);
-    fartModel.visible=false;
-    gunGroup.add(fartModel);
+    katanaModel = new THREE.Group();
+    const armK=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.11,0.45),new THREE.MeshStandardMaterial({color:0x4d7c0f,roughness:0.8}));
+    armK.position.set(0.02,-0.14,0.16); armK.rotation.x=0.2; katanaModel.add(armK);
+    const tLoader = new THREE.TextureLoader();
+    const kBase = tLoader.load('./assets/katana/katana_base.jpg');
+    const kMetal = tLoader.load('./assets/katana/katana_metallic.png');
+    const kRough = tLoader.load('./assets/katana/katana_roughness.png');
+    const kEmissive = tLoader.load('./assets/katana/katana_emissive.png');
+    const bladeMat = new THREE.MeshStandardMaterial({
+      map: kBase, metalnessMap: kMetal, roughnessMap: kRough,
+      emissiveMap: kEmissive, emissive: new THREE.Color(0x60a5fa), emissiveIntensity: 0.7,
+      metalness: 0.9, roughness: 0.25
+    });
+    const tsuka = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.024,0.22,10), new THREE.MeshStandardMaterial({color:0x1e293b,roughness:0.8}));
+    tsuka.rotation.x = Math.PI/2.3; tsuka.position.set(0,-0.02,-0.08); katanaModel.add(tsuka);
+    const tsuba = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.014,14), new THREE.MeshStandardMaterial({color:0xd4af37,metalness:0.85,roughness:0.3}));
+    tsuba.rotation.x = Math.PI/2.3; tsuba.position.set(0,0.015,-0.18); katanaModel.add(tsuba);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.016,0.042,0.78), bladeMat);
+    blade.rotation.x = -0.22; blade.position.set(0,0.12,-0.55); katanaModel.add(blade);
+    katanaModel.visible=false;
+    gunGroup.add(katanaModel);
 
     gunGroup.position.set(0.28,-0.28,-0.55);
     camera.add(gunGroup); scene.add(camera);
   }
   function updateWeaponModel(){
-    const isFart = selectedChar && selectedChar.weapon === 'fart';
-    if(gunModel) gunModel.visible = !isFart;
-    if(fartModel) fartModel.visible = isFart;
+    const isKatana = selectedChar && selectedChar.weapon === 'katana';
+    if(gunModel) gunModel.visible = !isKatana;
+    if(katanaModel) katanaModel.visible = isKatana;
   }
 
   // --- Stages ---
@@ -1218,12 +1228,40 @@ import * as THREE from 'three';
     }
   }
 
+  function katanaSlashAttack(){
+    if(katanaModel){
+      katanaModel.rotation.set(0.65, 0.55, -0.45);
+      setTimeout(()=>{ if(katanaModel) katanaModel.rotation.set(0,0,0); }, 160);
+    }
+    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+    dir.y = 0; dir.normalize();
+    const arcGeo = new THREE.RingGeometry(0.8, 3.2, 20, 1, -Math.PI*0.4, Math.PI*0.8);
+    const arcMat = new THREE.MeshBasicMaterial({color:0x60a5fa, transparent:true, opacity:0.75, side:THREE.DoubleSide});
+    const arc = new THREE.Mesh(arcGeo, arcMat);
+    arc.rotation.x = -Math.PI/2;
+    arc.rotation.z = Math.atan2(-dir.x, -dir.z);
+    arc.position.set(player.x + dir.x*1.2, 1.15, player.z + dir.z*1.2);
+    scene.add(arc);
+    setTimeout(()=>{ scene.remove(arc); arcGeo.dispose(); arcMat.dispose(); }, 150);
+
+    const range = 4.6;
+    for(const e of enemies){
+      if(!e.alive) continue;
+      const dx = e.x - player.x, dz = e.z - player.z;
+      const dist = Math.hypot(dx, dz);
+      if(dist <= range){
+        const dot = dist > 0.01 ? (dx/dist)*dir.x + (dz/dist)*dir.z : 1;
+        if(dot > 0.2 || dist < 1.6){ damageEnemy(e, 45); }
+      }
+    }
+  }
+
   function doShoot(){
-    const isFart = selectedChar && selectedChar.weapon === 'fart';
+    const isKatana = selectedChar && selectedChar.weapon === 'katana';
     if(shootCooldownPlayer > 0) return;
-    shootCooldownPlayer = isFart ? 0.9 : 0.22;
-    if(isFart){
-      fartBombAttack();
+    shootCooldownPlayer = isKatana ? 0.38 : 0.22;
+    if(isKatana){
+      katanaSlashAttack();
       return;
     }
     // muzzle flash
